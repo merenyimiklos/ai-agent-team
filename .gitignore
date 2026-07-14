@@ -6,12 +6,15 @@ local.properties
 # .NET
 **/bin/
 **/obj/
+backend/.tools/
+**/.vs/
 TestResults/
 *.user
 *.suo
 
 # Android / Gradle
 .gradle/
+.kotlin/
 **/build/
 .idea/
 *.iml
@@ -28,3 +31,6 @@ Thumbs.db
 *.log
 *.tmp
 *.swp
+
+# Generated Gradle daemon toolchain metadata
+android/gradle/gradle-daemon-jvm.properties
