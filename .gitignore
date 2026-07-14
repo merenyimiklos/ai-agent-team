@@ -1,0 +1,30 @@
+# Local configuration and secrets
+.env
+*.local
+local.properties
+
+# .NET
+**/bin/
+**/obj/
+TestResults/
+*.user
+*.suo
+
+# Android / Gradle
+.gradle/
+**/build/
+.idea/
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Editors and operating systems
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Logs and temporary files
+*.log
+*.tmp
+*.swp
