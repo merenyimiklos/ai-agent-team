@@ -63,7 +63,7 @@
     <string name="no_favorite_providers">Ments el egy kedvelt szolgáltatót.</string>
     <string name="logout">Kijelentkezés</string>
     <string name="signed_in_as">Belépve mint</string>
-    <string name="local_backend">Helyi API: 10.0.2.2:8080</string>
+    <string name="local_backend">Helyi API: 10.0.2.2:8081</string>
     <string name="sort">Rendezés</string>
     <string name="sort_time">Kezdés</string>
     <string name="sort_price">Ár</string>
