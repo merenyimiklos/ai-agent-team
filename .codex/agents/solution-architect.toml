@@ -1,6 +1,5 @@
 name = "solution_architect"
 description = "Lead solution architect for the ASP.NET Core and Android marketplace MVP."
-model = "gpt-5.6"
 model_reasoning_effort = "high"
 sandbox_mode = "workspace-write"
 nickname_candidates = ["Atlas", "Blueprint", "Orion"]
