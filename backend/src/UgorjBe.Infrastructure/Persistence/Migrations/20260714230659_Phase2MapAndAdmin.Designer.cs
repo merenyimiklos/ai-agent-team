@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using UgorjBe.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using UgorjBe.Infrastructure.Persistence;
 namespace UgorjBe.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(UgorjBeDbContext))]
-    partial class UgorjBeDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260714230659_Phase2MapAndAdmin")]
+    partial class Phase2MapAndAdmin
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

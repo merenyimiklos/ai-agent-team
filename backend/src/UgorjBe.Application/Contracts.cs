@@ -18,6 +18,7 @@ public sealed record UserDto(
     string Email,
     string DisplayName,
     string Locale,
+    string Role,
     DateTimeOffset CreatedAtUtc);
 
 public sealed record AuthResponse(
@@ -49,6 +50,7 @@ public sealed record ProviderDetailDto(
 public sealed record OfferSummaryDto(
     Guid Id,
     ProviderSummaryDto Provider,
+    AddressDto Address,
     string Title,
     OfferCategory Category,
     DateTimeOffset StartsAtUtc,
@@ -65,6 +67,7 @@ public sealed record OfferSummaryDto(
 public sealed record OfferDetailDto(
     Guid Id,
     ProviderSummaryDto Provider,
+    AddressDto Address,
     string Title,
     string Description,
     OfferCategory Category,
@@ -170,9 +173,41 @@ public sealed class OfferQuery
     public decimal? MaxDistanceKm { get; init; }
     public OfferSort Sort { get; init; } = OfferSort.START_TIME;
     public SortDirection Direction { get; init; } = SortDirection.ASC;
+    public decimal? South { get; init; }
+    public decimal? West { get; init; }
+    public decimal? North { get; init; }
+    public decimal? East { get; init; }
     public int Page { get; init; } = 1;
     public int PageSize { get; init; } = 20;
 }
+
+public sealed class MapOfferQuery
+{
+    public string? Q { get; init; }
+    public Guid? ProviderId { get; init; }
+    public List<OfferCategory>? Category { get; init; }
+    public int? ChildAge { get; init; }
+    public DateTimeOffset? StartsFromUtc { get; init; }
+    public DateTimeOffset? StartsToUtc { get; init; }
+    public decimal? MinPrice { get; init; }
+    public decimal? MaxPrice { get; init; }
+    public int MinAvailablePlaces { get; init; } = 1;
+    public decimal? Latitude { get; init; }
+    public decimal? Longitude { get; init; }
+    public decimal? MaxDistanceKm { get; init; }
+    public OfferSort Sort { get; init; } = OfferSort.START_TIME;
+    public SortDirection Direction { get; init; } = SortDirection.ASC;
+    public decimal? South { get; init; }
+    public decimal? West { get; init; }
+    public decimal? North { get; init; }
+    public decimal? East { get; init; }
+    public int Limit { get; init; } = 100;
+}
+
+public sealed record MapOfferEnvelope(
+    IReadOnlyList<OfferSummaryDto> Items,
+    bool IsTruncated,
+    int Limit);
 
 public sealed class CoordinateQuery
 {

@@ -6,7 +6,7 @@ namespace UgorjBe.Infrastructure.Services;
 internal static class DtoMapper
 {
     public static UserDto ToDto(User user) =>
-        new(user.Id, user.Email, user.DisplayName, user.Locale, user.CreatedAtUtc);
+        new(user.Id, user.Email, user.DisplayName, user.Locale, user.Role, user.CreatedAtUtc);
 
     public static ProviderSummaryDto ToSummary(Provider provider) => new(
         provider.Id,
@@ -18,6 +18,7 @@ internal static class DtoMapper
     public static OfferSummaryDto ToSummary(Offer offer, decimal? distanceKm = null) => new(
         offer.Id,
         ToSummary(offer.Provider),
+        Address(offer.PostalCode, offer.City, offer.Street, offer.CountryCode, offer.Latitude, offer.Longitude),
         offer.Title,
         offer.Category,
         offer.StartsAtUtc,
@@ -37,6 +38,7 @@ internal static class DtoMapper
         return new OfferDetailDto(
             offer.Id,
             ToSummary(offer.Provider),
+            Address(offer.PostalCode, offer.City, offer.Street, offer.CountryCode, offer.Latitude, offer.Longitude),
             offer.Title,
             offer.Description,
             offer.Category,
@@ -91,13 +93,13 @@ internal static class DtoMapper
             0,
             MidpointRounding.AwayFromZero);
 
-    public static decimal DistanceKm(decimal latitude, decimal longitude, Provider provider)
+    public static decimal DistanceKm(decimal latitude, decimal longitude, Offer offer)
     {
         const double radius = 6371d;
         var lat1 = DegreesToRadians((double)latitude);
-        var lat2 = DegreesToRadians((double)provider.Latitude);
-        var deltaLat = DegreesToRadians((double)(provider.Latitude - latitude));
-        var deltaLon = DegreesToRadians((double)(provider.Longitude - longitude));
+        var lat2 = DegreesToRadians((double)offer.Latitude);
+        var deltaLat = DegreesToRadians((double)(offer.Latitude - latitude));
+        var deltaLon = DegreesToRadians((double)(offer.Longitude - longitude));
         var a = Math.Sin(deltaLat / 2) * Math.Sin(deltaLat / 2) +
                 Math.Cos(lat1) * Math.Cos(lat2) * Math.Sin(deltaLon / 2) * Math.Sin(deltaLon / 2);
         var distance = radius * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
@@ -115,9 +117,14 @@ internal static class DtoMapper
 
     private static string? UnavailableReason(Offer offer, DateTimeOffset now)
     {
-        if (offer.Status == OfferStatus.WITHDRAWN)
+        if (offer.Status == OfferStatus.UNPUBLISHED)
         {
-            return "WITHDRAWN";
+            return "UNPUBLISHED";
+        }
+
+        if (offer.Status == OfferStatus.ARCHIVED)
+        {
+            return "ARCHIVED";
         }
 
         if (now >= offer.StartsAtUtc)

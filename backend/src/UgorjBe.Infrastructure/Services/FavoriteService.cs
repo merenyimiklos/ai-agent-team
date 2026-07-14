@@ -25,7 +25,7 @@ public sealed class FavoriteService(UgorjBeDbContext dbContext, TimeProvider tim
 
     public async Task AddOfferAsync(Guid userId, Guid offerId, CancellationToken cancellationToken)
     {
-        if (!await dbContext.Offers.AsNoTracking().AnyAsync(x => x.Id == offerId, cancellationToken))
+        if (!await dbContext.Offers.AsNoTracking().AnyAsync(x => x.Id == offerId && x.PublishedAtUtc != null, cancellationToken))
         {
             throw AppErrors.NotFound("offer");
         }

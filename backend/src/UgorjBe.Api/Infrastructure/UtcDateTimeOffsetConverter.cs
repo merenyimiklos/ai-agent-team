@@ -8,7 +8,13 @@ public sealed class UtcDateTimeOffsetConverter : JsonConverter<DateTimeOffset>
 {
     public override DateTimeOffset Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
-        if (!reader.TryGetDateTimeOffset(out var value)) throw new JsonException("Invalid ISO-8601 timestamp.");
+        var text = reader.GetString();
+        if (text is null || !text.EndsWith('Z') ||
+            !DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var value))
+        {
+            throw new JsonException("A UTC timestamp ending in Z is required.");
+        }
+
         return value.ToUniversalTime();
     }
 

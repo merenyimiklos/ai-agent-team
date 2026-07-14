@@ -18,7 +18,9 @@ public sealed class BookingRulesTests
     }
 
     [Theory]
-    [InlineData(OfferStatus.WITHDRAWN, 11, 0)]
+    [InlineData(OfferStatus.UNPUBLISHED, 11, 0)]
+    [InlineData(OfferStatus.DRAFT, 11, 0)]
+    [InlineData(OfferStatus.ARCHIVED, 11, 0)]
     [InlineData(OfferStatus.PUBLISHED, 10, 0)]
     [InlineData(OfferStatus.PUBLISHED, 11, 0)]
     public void Reserve_rejects_withdrawn_cutoff_or_started_offer(OfferStatus status, int cutoffHour, int startHourOffset)

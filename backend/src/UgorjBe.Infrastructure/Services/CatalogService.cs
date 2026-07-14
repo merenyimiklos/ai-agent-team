@@ -16,51 +16,74 @@ public sealed class CatalogService(UgorjBeDbContext dbContext, TimeProvider time
         var startsTo = query.StartsToUtc?.ToUniversalTime() ?? EndOfBudapestDay(now);
         QueryValidation.Validate(query, startsFrom, startsTo);
 
-        var databaseQuery = dbContext.Offers
-            .AsNoTracking()
-            .Include(x => x.Provider)
-            .Where(x => x.Status == OfferStatus.PUBLISHED &&
-                        x.BookingCutoffUtc > now &&
-                        x.StartsAtUtc > now &&
-                        x.StartsAtUtc >= startsFrom &&
-                        x.StartsAtUtc < startsTo &&
-                        x.TotalCapacity - x.ReservedQuantity >= query.MinAvailablePlaces);
+        var source = ApplyDiscoveryFilters(
+            BaseDiscovery(now, startsFrom, startsTo, query.MinAvailablePlaces),
+            query.Q, query.ProviderId, query.Category, query.ChildAge, query.MinPrice, query.MaxPrice,
+            query.South, query.West, query.North, query.East,
+            query.Latitude, query.Longitude, query.MaxDistanceKm);
 
-        var search = query.Q?.Trim();
-        if (!string.IsNullOrWhiteSpace(search))
+        if (query.Sort == OfferSort.DISTANCE || query.MaxDistanceKm is not null)
         {
-            var pattern = $"%{EscapeLike(search)}%";
-            databaseQuery = databaseQuery.Where(x =>
-                EF.Functions.ILike(x.Title, pattern, "\\") ||
-                EF.Functions.ILike(x.Description, pattern, "\\") ||
-                EF.Functions.ILike(x.Provider.Name, pattern, "\\"));
+            return await MaterializeDistancePageAsync(source, query, cancellationToken);
         }
 
-        if (query.ProviderId is not null) databaseQuery = databaseQuery.Where(x => x.ProviderId == query.ProviderId);
-        if (query.Category is { Count: > 0 }) databaseQuery = databaseQuery.Where(x => query.Category.Contains(x.Category));
-        if (query.ChildAge is not null) databaseQuery = databaseQuery.Where(x => x.MinChildAge <= query.ChildAge && x.MaxChildAge >= query.ChildAge);
-        if (query.MinPrice is not null) databaseQuery = databaseQuery.Where(x => x.DiscountedUnitPrice >= query.MinPrice);
-        if (query.MaxPrice is not null) databaseQuery = databaseQuery.Where(x => x.DiscountedUnitPrice <= query.MaxPrice);
-
-        var offers = await databaseQuery.ToListAsync(cancellationToken);
-        var projected = offers.Select(x => new OfferWithDistance(
-            x,
-            query.Latitude is not null
-                ? DtoMapper.DistanceKm(query.Latitude.Value, query.Longitude!.Value, x.Provider)
-                : null));
-
-        if (query.MaxDistanceKm is not null) projected = projected.Where(x => x.DistanceKm <= query.MaxDistanceKm);
-
-        var sorted = ApplySort(projected, query.Sort, query.Direction);
-        var ordered = sorted.ThenBy(x => x.Offer.Id).ToList();
-        var totalCount = ordered.Count;
-        var items = ordered
+        var totalCount = await source.CountAsync(cancellationToken);
+        var offers = await ApplyDatabaseSort(source, query.Sort, query.Direction)
+            .ThenBy(x => x.Id)
             .Skip((query.Page - 1) * query.PageSize)
             .Take(query.PageSize)
-            .Select(x => DtoMapper.ToSummary(x.Offer, x.DistanceKm))
-            .ToList();
+            .ToListAsync(cancellationToken);
+        return PageDto<OfferSummaryDto>.Create(
+            offers.Select(x => DtoMapper.ToSummary(x, query.Latitude is null
+                ? null
+                : DtoMapper.DistanceKm(query.Latitude.Value, query.Longitude!.Value, x))).ToList(),
+            query.Page,
+            query.PageSize,
+            totalCount);
+    }
 
-        return PageDto<OfferSummaryDto>.Create(items, query.Page, query.PageSize, totalCount);
+    public async Task<MapOfferEnvelope> GetMapOffersAsync(MapOfferQuery query, CancellationToken cancellationToken)
+    {
+        var now = timeProvider.GetUtcNow();
+        var startsFrom = query.StartsFromUtc?.ToUniversalTime() ?? now;
+        var startsTo = query.StartsToUtc?.ToUniversalTime() ?? EndOfBudapestDay(now);
+        QueryValidation.Validate(query, startsFrom, startsTo);
+        var source = ApplyDiscoveryFilters(
+            BaseDiscovery(now, startsFrom, startsTo, query.MinAvailablePlaces),
+            query.Q, query.ProviderId, query.Category, query.ChildAge, query.MinPrice, query.MaxPrice,
+            query.South, query.West, query.North, query.East,
+            query.Latitude, query.Longitude, query.MaxDistanceKm);
+
+        // Distance sorting/radius needs exact Haversine after the indexed bounding predicates.
+        if (query.Sort == OfferSort.DISTANCE || query.MaxDistanceKm is not null)
+        {
+            var candidates = await source.ToListAsync(cancellationToken);
+            var projected = candidates.Select(x => new OfferWithDistance(
+                x,
+                query.Latitude is null ? null : DtoMapper.DistanceKm(query.Latitude.Value, query.Longitude!.Value, x)));
+            if (query.MaxDistanceKm is not null)
+            {
+                projected = projected.Where(x => x.DistanceKm <= query.MaxDistanceKm);
+            }
+
+            var ordered = ApplyMemorySort(projected, query.Sort, query.Direction).ThenBy(x => x.Offer.Id);
+            var materialized = ordered.Take(query.Limit + 1).ToList();
+            return new MapOfferEnvelope(
+                materialized.Take(query.Limit).Select(x => DtoMapper.ToSummary(x.Offer, x.DistanceKm)).ToList(),
+                materialized.Count > query.Limit,
+                query.Limit);
+        }
+
+        var offers = await ApplyDatabaseSort(source, query.Sort, query.Direction)
+            .ThenBy(x => x.Id)
+            .Take(query.Limit + 1)
+            .ToListAsync(cancellationToken);
+        return new MapOfferEnvelope(
+            offers.Take(query.Limit).Select(x => DtoMapper.ToSummary(x, query.Latitude is null
+                ? null
+                : DtoMapper.DistanceKm(query.Latitude.Value, query.Longitude!.Value, x))).ToList(),
+            offers.Count > query.Limit,
+            query.Limit);
     }
 
     public async Task<OfferDetailDto> GetOfferAsync(Guid offerId, CoordinateQuery query, CancellationToken cancellationToken)
@@ -69,9 +92,14 @@ public sealed class CatalogService(UgorjBeDbContext dbContext, TimeProvider time
         var offer = await dbContext.Offers.AsNoTracking().Include(x => x.Provider)
             .SingleOrDefaultAsync(x => x.Id == offerId, cancellationToken)
             ?? throw AppErrors.NotFound("offer");
+        if (offer.PublishedAtUtc is null)
+        {
+            throw AppErrors.NotFound("offer");
+        }
+
         decimal? distance = query.Latitude is null
             ? null
-            : DtoMapper.DistanceKm(query.Latitude.Value, query.Longitude!.Value, offer.Provider);
+            : DtoMapper.DistanceKm(query.Latitude.Value, query.Longitude!.Value, offer);
         return DtoMapper.ToDetail(offer, timeProvider.GetUtcNow(), distance);
     }
 
@@ -85,22 +113,12 @@ public sealed class CatalogService(UgorjBeDbContext dbContext, TimeProvider time
         var activeOfferCount = await dbContext.Offers.CountAsync(x =>
             x.ProviderId == providerId &&
             x.Status == OfferStatus.PUBLISHED &&
-            x.StartsAtUtc > now &&
-            x.StartsAtUtc < endOfDay &&
-            x.BookingCutoffUtc > now &&
-            x.TotalCapacity > x.ReservedQuantity, cancellationToken);
+            x.StartsAtUtc > now && x.StartsAtUtc < endOfDay &&
+            x.BookingCutoffUtc > now && x.TotalCapacity > x.ReservedQuantity, cancellationToken);
         var summary = DtoMapper.ToSummary(provider);
         return new ProviderDetailDto(
-            summary.Id,
-            summary.Name,
-            summary.ShortDescription,
-            provider.Description,
-            summary.Address,
-            provider.Phone,
-            provider.Email,
-            provider.WebsiteUrl,
-            provider.AccessibilityInfo,
-            provider.ImageUrl,
+            summary.Id, summary.Name, summary.ShortDescription, provider.Description, summary.Address,
+            provider.Phone, provider.Email, provider.WebsiteUrl, provider.AccessibilityInfo, provider.ImageUrl,
             activeOfferCount);
     }
 
@@ -111,7 +129,81 @@ public sealed class CatalogService(UgorjBeDbContext dbContext, TimeProvider time
         return new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(nextLocalMidnight, BudapestTimeZone), TimeSpan.Zero);
     }
 
-    private static IOrderedEnumerable<OfferWithDistance> ApplySort(
+    private IQueryable<Offer> BaseDiscovery(DateTimeOffset now, DateTimeOffset startsFrom, DateTimeOffset startsTo, int minimumAvailable) =>
+        dbContext.Offers.AsNoTracking().Include(x => x.Provider).Where(x =>
+            x.Status == OfferStatus.PUBLISHED &&
+            x.BookingCutoffUtc > now && x.StartsAtUtc > now &&
+            x.StartsAtUtc >= startsFrom && x.StartsAtUtc < startsTo &&
+            x.TotalCapacity - x.ReservedQuantity >= minimumAvailable);
+
+    private static IQueryable<Offer> ApplyDiscoveryFilters(
+        IQueryable<Offer> source,
+        string? q,
+        Guid? providerId,
+        List<OfferCategory>? categories,
+        int? childAge,
+        decimal? minPrice,
+        decimal? maxPrice,
+        decimal? south,
+        decimal? west,
+        decimal? north,
+        decimal? east,
+        decimal? latitude,
+        decimal? longitude,
+        decimal? maxDistanceKm)
+    {
+        var search = q?.Trim();
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var pattern = $"%{EscapeLike(search)}%";
+            source = source.Where(x =>
+                EF.Functions.ILike(x.Title, pattern, "\\") ||
+                EF.Functions.ILike(x.Description, pattern, "\\") ||
+                EF.Functions.ILike(x.Provider.Name, pattern, "\\"));
+        }
+
+        if (providerId is not null) source = source.Where(x => x.ProviderId == providerId);
+        if (categories is { Count: > 0 }) source = source.Where(x => categories.Contains(x.Category));
+        if (childAge is not null) source = source.Where(x => x.MinChildAge <= childAge && x.MaxChildAge >= childAge);
+        if (minPrice is not null) source = source.Where(x => x.DiscountedUnitPrice >= minPrice);
+        if (maxPrice is not null) source = source.Where(x => x.DiscountedUnitPrice <= maxPrice);
+        if (south is not null)
+        {
+            source = source.Where(x =>
+                x.Latitude >= south && x.Latitude < north &&
+                x.Longitude >= west && x.Longitude < east);
+        }
+
+        // Radius queries first use a conservative indexed rectangle, then exact Haversine.
+        if (maxDistanceKm is not null && latitude is not null && longitude is not null)
+        {
+            var latDelta = maxDistanceKm.Value / 110.574m;
+            var cos = (decimal)Math.Max(0.01d, Math.Cos((double)latitude.Value * Math.PI / 180d));
+            var lonDelta = maxDistanceKm.Value / (111.320m * cos);
+            var minLat = latitude.Value - latDelta;
+            var maxLat = latitude.Value + latDelta;
+            var minLon = longitude.Value - lonDelta;
+            var maxLon = longitude.Value + lonDelta;
+            source = source.Where(x =>
+                x.Latitude >= minLat && x.Latitude <= maxLat &&
+                x.Longitude >= minLon && x.Longitude <= maxLon);
+        }
+
+        return source;
+    }
+
+    private static IOrderedQueryable<Offer> ApplyDatabaseSort(IQueryable<Offer> source, OfferSort sort, SortDirection direction) =>
+        (sort, direction) switch
+        {
+            (OfferSort.PRICE, SortDirection.DESC) => source.OrderByDescending(x => x.DiscountedUnitPrice),
+            (OfferSort.PRICE, _) => source.OrderBy(x => x.DiscountedUnitPrice),
+            (OfferSort.DISCOUNT, SortDirection.DESC) => source.OrderByDescending(x => x.OriginalUnitPrice == 0 ? 0 : (x.OriginalUnitPrice - x.DiscountedUnitPrice) / x.OriginalUnitPrice),
+            (OfferSort.DISCOUNT, _) => source.OrderBy(x => x.OriginalUnitPrice == 0 ? 0 : (x.OriginalUnitPrice - x.DiscountedUnitPrice) / x.OriginalUnitPrice),
+            (_, SortDirection.DESC) => source.OrderByDescending(x => x.StartsAtUtc),
+            _ => source.OrderBy(x => x.StartsAtUtc)
+        };
+
+    private static IOrderedEnumerable<OfferWithDistance> ApplyMemorySort(
         IEnumerable<OfferWithDistance> source,
         OfferSort sort,
         SortDirection direction)
@@ -123,9 +215,24 @@ public sealed class CatalogService(UgorjBeDbContext dbContext, TimeProvider time
             OfferSort.DISCOUNT => x => DtoMapper.DiscountPercent(x.Offer),
             _ => x => x.Offer.StartsAtUtc
         };
-        return direction == SortDirection.DESC
-            ? source.OrderByDescending(selector)
-            : source.OrderBy(selector);
+        return direction == SortDirection.DESC ? source.OrderByDescending(selector) : source.OrderBy(selector);
+    }
+
+    private async Task<PageDto<OfferSummaryDto>> MaterializeDistancePageAsync(
+        IQueryable<Offer> source,
+        OfferQuery query,
+        CancellationToken cancellationToken)
+    {
+        var offers = await source.ToListAsync(cancellationToken);
+        var projected = offers.Select(x => new OfferWithDistance(
+            x,
+            query.Latitude is null ? null : DtoMapper.DistanceKm(query.Latitude.Value, query.Longitude!.Value, x)));
+        if (query.MaxDistanceKm is not null) projected = projected.Where(x => x.DistanceKm <= query.MaxDistanceKm);
+        var ordered = ApplyMemorySort(projected, query.Sort, query.Direction).ThenBy(x => x.Offer.Id).ToList();
+        return PageDto<OfferSummaryDto>.Create(
+            ordered.Skip((query.Page - 1) * query.PageSize).Take(query.PageSize)
+                .Select(x => DtoMapper.ToSummary(x.Offer, x.DistanceKm)).ToList(),
+            query.Page, query.PageSize, ordered.Count);
     }
 
     private static string EscapeLike(string value) =>

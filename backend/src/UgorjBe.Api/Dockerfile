@@ -11,7 +11,11 @@ RUN dotnet publish backend/src/UgorjBe.Api/UgorjBe.Api.csproj -c Release --no-re
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
 EXPOSE 8080
 ENV ASPNETCORE_URLS=http://+:8080
 COPY --from=build /app/publish .
+HEALTHCHECK --interval=10s --timeout=3s --start-period=20s --retries=5 CMD curl --fail --silent http://localhost:8080/health || exit 1
 ENTRYPOINT ["dotnet", "UgorjBe.Api.dll"]

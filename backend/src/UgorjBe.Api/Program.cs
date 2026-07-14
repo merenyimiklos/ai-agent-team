@@ -9,6 +9,11 @@ using UgorjBe.Infrastructure.Persistence;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddInfrastructure(builder.Configuration);
+var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? ["http://localhost:5173"];
+builder.Services.AddCors(options => options.AddPolicy("AdminDevelopment", policy => policy
+    .WithOrigins(corsOrigins)
+    .WithMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+    .WithHeaders("Authorization", "Content-Type")));
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
@@ -77,6 +82,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseCors("AdminDevelopment");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

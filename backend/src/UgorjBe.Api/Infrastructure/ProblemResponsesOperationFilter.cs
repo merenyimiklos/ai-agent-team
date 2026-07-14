@@ -56,6 +56,24 @@ public sealed class ProblemResponsesOperationFilter : IOperationFilter
         {
             Add(operation, context, 404, "PROVIDER_NOT_FOUND");
         }
+
+        if (path.StartsWith("api/admin/providers/{", StringComparison.Ordinal))
+        {
+            Add(operation, context, 404, "PROVIDER_NOT_FOUND");
+            if (method == "PUT") Add(operation, context, 409, "CONCURRENCY_CONFLICT");
+        }
+        else if (path == "api/admin/offers" && method == "POST")
+        {
+            Add(operation, context, 404, "PROVIDER_NOT_FOUND");
+        }
+        else if (path.StartsWith("api/admin/offers/{", StringComparison.Ordinal))
+        {
+            Add(operation, context, 404, "OFFER_NOT_FOUND");
+            if (method is "PUT" or "POST")
+            {
+                Add(operation, context, 409, "CONCURRENCY_CONFLICT or lifecycle/update conflict");
+            }
+        }
     }
 
     internal static void Add(

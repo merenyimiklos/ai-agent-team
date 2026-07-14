@@ -23,5 +23,9 @@ public sealed class AuthorizeOperationFilter : IOperationFilter
             }
         ];
         ProblemResponsesOperationFilter.Add(operation, context, 401, "AUTH_REQUIRED");
+        if (metadata.OfType<IAuthorizeData>().Any(x => x.Policy == "AdminOnly"))
+        {
+            ProblemResponsesOperationFilter.Add(operation, context, 403, "AUTH_FORBIDDEN");
+        }
     }
 }

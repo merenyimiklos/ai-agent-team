@@ -12,6 +12,7 @@ public sealed class DatabaseSeeder(
     TimeProvider timeProvider)
 {
     public static readonly Guid DemoUserId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    public static readonly Guid DemoAdminId = Guid.Parse("11111111-1111-1111-1111-111111111112");
     public static readonly Guid PrimaryProviderId = Guid.Parse("22222222-2222-2222-2222-222222222222");
     public static readonly Guid PrimaryOfferId = Guid.Parse("33333333-3333-3333-3333-333333333333");
     public static readonly Guid HistoricalOfferId = Guid.Parse("33333333-3333-3333-3333-333333333340");
@@ -47,6 +48,23 @@ public sealed class DatabaseSeeder(
             };
             user.PasswordHash = passwordHasher.HashPassword(user, "UgorjBe123!");
             dbContext.Users.Add(user);
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        if (!await dbContext.Users.AnyAsync(x => x.Id == DemoAdminId || x.NormalizedEmail == "ADMIN@UGORJBE.LOCAL", cancellationToken))
+        {
+            var admin = new User
+            {
+                Id = DemoAdminId,
+                Email = "admin@ugorjbe.local",
+                NormalizedEmail = "ADMIN@UGORJBE.LOCAL",
+                DisplayName = "UgorjBe Admin",
+                Locale = "hu-HU",
+                Role = "admin",
+                CreatedAtUtc = now
+            };
+            admin.PasswordHash = passwordHasher.HashPassword(admin, "UgorjBeAdmin123!");
+            dbContext.Users.Add(admin);
             await dbContext.SaveChangesAsync(cancellationToken);
         }
 
@@ -236,6 +254,12 @@ public sealed class DatabaseSeeder(
         Title = title,
         Description = description,
         Category = category,
+        PostalCode = ProviderAddress(providerId).PostalCode,
+        City = ProviderAddress(providerId).City,
+        Street = ProviderAddress(providerId).Street,
+        CountryCode = "HU",
+        Latitude = ProviderAddress(providerId).Latitude,
+        Longitude = ProviderAddress(providerId).Longitude,
         StartsAtUtc = startsAt,
         EndsAtUtc = startsAt.AddMinutes(durationMinutes),
         BookingCutoffUtc = startsAt.AddMinutes(-30),
@@ -250,9 +274,19 @@ public sealed class DatabaseSeeder(
         TotalCapacity = capacity,
         ReservedQuantity = reserved,
         Status = OfferStatus.PUBLISHED,
+        PublishedAtUtc = now,
         CreatedAtUtc = now,
         UpdatedAtUtc = now
     };
+
+    private static (string PostalCode, string City, string Street, decimal Latitude, decimal Longitude) ProviderAddress(Guid providerId) =>
+        providerId == PrimaryProviderId
+            ? ("1137", "Budapest", "Pozsonyi út 12.", 47.518200m, 19.050400m)
+            : providerId == Guid.Parse("22222222-2222-2222-2222-222222222223")
+                ? ("1117", "Budapest", "Karinthy Frigyes út 18.", 47.475900m, 19.052000m)
+                : providerId == Guid.Parse("22222222-2222-2222-2222-222222222224")
+                    ? ("1146", "Budapest", "Istvánmezei út 6.", 47.507400m, 19.093600m)
+                    : ("1088", "Budapest", "Múzeum körút 14.", 47.490700m, 19.061400m);
 
     private static DateTimeOffset Utc(DateTime local) =>
         new(TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(local, DateTimeKind.Unspecified), BudapestTimeZone), TimeSpan.Zero);

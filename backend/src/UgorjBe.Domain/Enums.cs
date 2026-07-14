@@ -13,8 +13,10 @@ public enum OfferCategory
 
 public enum OfferStatus
 {
+    DRAFT,
     PUBLISHED,
-    WITHDRAWN
+    UNPUBLISHED,
+    ARCHIVED
 }
 
 public enum BookingStatus
