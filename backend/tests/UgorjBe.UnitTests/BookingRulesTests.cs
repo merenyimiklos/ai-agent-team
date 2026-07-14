@@ -39,6 +39,16 @@ public sealed class BookingRulesTests
         Assert.Equal(BookingRejection.INSUFFICIENT_CAPACITY, BookingRules.CanReserve(offer, 2, Now));
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(11)]
+    public void Reserve_rejects_quantity_outside_contract(int quantity)
+    {
+        var offer = Offer(capacity: 20, reserved: 0);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => BookingRules.CanReserve(offer, quantity, Now));
+    }
+
     [Fact]
     public void Cancellation_is_allowed_at_deadline_but_not_after()
     {

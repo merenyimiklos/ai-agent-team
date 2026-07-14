@@ -17,6 +17,8 @@ import hu.ugorjbe.app.domain.FavoritesRepository
 import hu.ugorjbe.app.domain.OfferFilter
 import hu.ugorjbe.app.domain.Session
 import java.math.BigDecimal
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 import javax.inject.Inject
 
 class AuthRepositoryImpl @Inject constructor(
@@ -51,10 +53,15 @@ class CatalogRepositoryImpl @Inject constructor(
 ) : CatalogRepository {
     override suspend fun offers(filter: OfferFilter) = runner.call {
         val useLocation = filter.nearBudapestCenter
+        val windowStart = filter.startsWithinHours?.let { Instant.now() }
         api.offers(
             query = filter.query.trim().ifBlank { null },
             categories = filter.category?.let(::listOf),
             childAge = filter.childAge,
+            startsFromUtc = windowStart?.toString(),
+            startsToUtc = windowStart?.plus(filter.startsWithinHours?.toLong() ?: 0, ChronoUnit.HOURS)?.toString(),
+            maxPrice = filter.maxPrice,
+            minAvailablePlaces = filter.minAvailablePlaces,
             latitude = if (useLocation) BigDecimal("47.4979") else null,
             longitude = if (useLocation) BigDecimal("19.0402") else null,
             maxDistanceKm = if (useLocation) BigDecimal.TEN else null,

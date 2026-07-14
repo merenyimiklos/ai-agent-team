@@ -16,6 +16,7 @@ import hu.ugorjbe.app.domain.ProviderDetail
 import hu.ugorjbe.app.domain.ProviderSummary
 import hu.ugorjbe.app.testBooking
 import hu.ugorjbe.app.testOfferDetail
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -30,7 +31,8 @@ class OfferDetailViewModelTest {
     @get:Rule val dispatcherRule = MainDispatcherRule()
 
     @Test fun `browse detail reserve flow renders only authoritative booking response`() = runTest(dispatcherRule.dispatcher) {
-        val bookings = FakeBookingRepository(ApiResult.Success(testBooking))
+        val bookingResult = CompletableDeferred<ApiResult<Booking>>()
+        val bookings = FakeBookingRepository { bookingResult.await() }
         val viewModel = OfferDetailViewModel(
             SavedStateHandle(mapOf("offerId" to "offer")),
             FakeCatalog(), bookings, FakeFavorites(),
@@ -40,7 +42,9 @@ class OfferDetailViewModelTest {
 
         viewModel.setQuantity(2)
         viewModel.reserve()
+        runCurrent()
         assertTrue(viewModel.state.value.reserving)
+        bookingResult.complete(ApiResult.Success(testBooking))
         runCurrent()
 
         assertFalse(viewModel.state.value.reserving)
@@ -50,9 +54,9 @@ class OfferDetailViewModelTest {
     }
 
     @Test fun `capacity conflict applies server limit without reporting success`() = runTest(dispatcherRule.dispatcher) {
-        val bookings = FakeBookingRepository(
-            ApiResult.Failure(ApiError(ApiError.Kind.INSUFFICIENT_CAPACITY, availablePlaces = 1)),
-        )
+        val bookings = FakeBookingRepository {
+            ApiResult.Failure(ApiError(ApiError.Kind.INSUFFICIENT_CAPACITY, availablePlaces = 1))
+        }
         val viewModel = OfferDetailViewModel(
             SavedStateHandle(mapOf("offerId" to "offer")),
             FakeCatalog(), bookings, FakeFavorites(),
@@ -74,11 +78,11 @@ private class FakeCatalog : CatalogRepository {
     override suspend fun provider(id: String): ApiResult<ProviderDetail> = error("unused")
 }
 
-private class FakeBookingRepository(private val createResult: ApiResult<Booking>) : BookingRepository {
+private class FakeBookingRepository(private val createResult: suspend () -> ApiResult<Booking>) : BookingRepository {
     var lastQuantity: Int? = null
     override suspend fun create(offerId: String, quantity: Int): ApiResult<Booking> {
         lastQuantity = quantity
-        return createResult
+        return createResult()
     }
     override suspend fun list(scope: String): ApiResult<Page<Booking>> = error("unused")
     override suspend fun detail(id: String): ApiResult<Booking> = error("unused")

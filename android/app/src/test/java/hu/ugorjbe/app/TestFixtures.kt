@@ -6,11 +6,16 @@ import hu.ugorjbe.app.domain.BookingOffer
 import hu.ugorjbe.app.domain.Money
 import hu.ugorjbe.app.domain.OfferDetail
 import hu.ugorjbe.app.domain.OfferSummary
+import hu.ugorjbe.app.domain.ProviderDetail
 import hu.ugorjbe.app.domain.ProviderSummary
 import java.math.BigDecimal
 
 val testAddress = Address("1137", "Budapest", "Pozsonyi út 12.", "HU", BigDecimal("47.5"), BigDecimal("19.0"))
 val testProvider = ProviderSummary("provider", "Kerek Erdő", "Családi műhely", testAddress, null)
+val testProviderDetail = ProviderDetail(
+    "provider", "Kerek Erdő", "Családi műhely", "Részletes bemutatkozás", testAddress,
+    "+3615550100", "hello@example.invalid", null, "Babakocsival megközelíthető.", null, 2,
+)
 val testMoney = Money(BigDecimal("3200.00"), "HUF")
 val testOfferSummary = OfferSummary(
     "offer", testProvider, "Agyagozás", "WORKSHOP", "2026-07-14T14:00:00Z",

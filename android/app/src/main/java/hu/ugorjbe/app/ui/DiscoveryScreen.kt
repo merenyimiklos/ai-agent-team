@@ -36,6 +36,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hu.ugorjbe.app.R
 import hu.ugorjbe.app.domain.OfferFilter
 import hu.ugorjbe.app.ui.viewmodel.DiscoveryViewModel
+import java.math.BigDecimal
 
 private val categories = listOf<String?>(null, "PLAYHOUSE", "WORKSHOP", "MOVEMENT", "SWIMMING", "SPORT", "MUSEUM", "PARENT_CHILD")
 
@@ -116,6 +117,47 @@ private fun FilterDialog(current: OfferFilter, onDismiss: () -> Unit, onApply: (
                         Text(draft.childAge?.toString() ?: stringResource(R.string.any_age))
                         TextButton(onClick = { draft = draft.copy(childAge = (draft.childAge ?: 0).plus(1).coerceAtMost(18)) }) { Text("+") }
                         if (draft.childAge != null) TextButton(onClick = { draft = draft.copy(childAge = null) }) { Text(stringResource(R.string.clear_filters)) }
+                    }
+                }
+                item {
+                    Text(stringResource(R.string.start_window), fontWeight = FontWeight.SemiBold)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf(
+                            null to R.string.start_today,
+                            3 to R.string.start_next_three_hours,
+                            6 to R.string.start_next_six_hours,
+                        ).forEach { (hours, label) ->
+                            FilterChip(
+                                selected = draft.startsWithinHours == hours,
+                                onClick = { draft = draft.copy(startsWithinHours = hours) },
+                                label = { Text(stringResource(label)) },
+                            )
+                        }
+                    }
+                }
+                item {
+                    Text(stringResource(R.string.maximum_price), fontWeight = FontWeight.SemiBold)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf<BigDecimal?>(null, BigDecimal("5000"), BigDecimal("10000")).forEach { price ->
+                            FilterChip(
+                                selected = draft.maxPrice == price,
+                                onClick = { draft = draft.copy(maxPrice = price) },
+                                label = {
+                                    Text(
+                                        price?.let { stringResource(R.string.price_under_huf, it.toInt()) }
+                                            ?: stringResource(R.string.any_price),
+                                    )
+                                },
+                            )
+                        }
+                    }
+                }
+                item {
+                    Text(stringResource(R.string.minimum_places), fontWeight = FontWeight.SemiBold)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = { draft = draft.copy(minAvailablePlaces = (draft.minAvailablePlaces - 1).coerceAtLeast(1)) }) { Text("−") }
+                        Text(draft.minAvailablePlaces.toString())
+                        TextButton(onClick = { draft = draft.copy(minAvailablePlaces = (draft.minAvailablePlaces + 1).coerceAtMost(10)) }) { Text("+") }
                     }
                 }
                 item {

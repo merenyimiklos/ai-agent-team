@@ -12,6 +12,7 @@ public static class BookingRules
     public static BookingRejection CanReserve(Offer offer, int quantity, DateTimeOffset now)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(quantity, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(quantity, 10);
 
         if (offer.Status != OfferStatus.PUBLISHED ||
             now >= offer.BookingCutoffUtc ||
