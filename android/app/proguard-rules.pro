@@ -1,0 +1,2 @@
+-keepattributes Signature, *Annotation*
+-keep class hu.ugorjbe.app.data.remote.** { *; }
