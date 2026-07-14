@@ -1,36 +1,34 @@
-# UgorjBe MVP API contract
+# UgorjBe Phase 2 API contract
 
-**Status:** Frozen for backend and Android implementation  
-**Base URL (Android Emulator debug):** `http://10.0.2.2:8080`  
-**Media types:** `application/json`; errors use `application/problem+json`  
-**Authentication:** `Authorization: Bearer <accessToken>` where required
+**Status:** Frozen for backend, Android, and administration web implementation<br>
+**Direct local API:** `http://localhost:8081`<br>
+**Android Emulator debug:** `http://10.0.2.2:8081`<br>
+**Compose admin same-origin API:** relative `/api` through `http://localhost:8080`<br>
+**Media types:** `application/json`; errors use `application/problem+json`
 
-This document is the human-readable OpenAPI source of truth. The backend's generated Swagger document must match it. Endpoint paths are unversioned for the MVP. Breaking changes require coordinated backend, Android, contract-test, and documentation updates.
+This is the human-readable source of truth for generated OpenAPI and client models. Existing customer paths remain unversioned and compatible except for additive fields and documented lifecycle enum expansion.
 
 ## 1. Wire conventions
 
-- JSON names are camelCase and unknown response fields should be ignored by clients.
+- JSON is camelCase; clients ignore unknown response fields.
 - IDs are UUID strings.
-- Timestamps are ISO 8601 UTC strings ending in `Z`.
-- Money amounts are decimal JSON numbers, never localized strings or binary floating-point calculations.
-- Enum values are the uppercase spellings shown here.
-- Request bodies reject unknown enum values and malformed UUIDs/timestamps.
-- Optional absent values are JSON `null` when the field is present. Request fields not marked optional are required.
-- Protected endpoints return `401` for a missing/invalid/expired bearer token.
-- `GET` collection endpoints use one-based pagination and return stable results with UUID as the final ascending tie-breaker.
+- Every timestamp is an ISO-8601 UTC instant ending in `Z`. Admin writes with a local time or non-UTC offset fail validation.
+- Money is a decimal JSON number plus an uppercase ISO-4217 code. It is never a localized string or binary floating point.
+- Enum values use the uppercase spellings in this document; integers are rejected.
+- Optional response fields are explicit `null` where shown.
+- Collection pages are one-based and use UUID ascending as their final tie-breaker.
+- List page size defaults to 20 and is 1–50.
+- Protected requests use `Authorization: Bearer <accessToken>`.
 
-### `Money`
+### Money
 
 ```json
-{
-  "amount": 3200.00,
-  "currency": "HUF"
-}
+{ "amount": 3200.00, "currency": "HUF" }
 ```
 
-`currency` is an uppercase ISO 4217 code. One booking must use one currency.
+Amount is 0–9999999999.99 with at most two fractional digits. Two prices on one offer must use the same currency.
 
-### `Address`
+### Address
 
 ```json
 {
@@ -43,7 +41,7 @@ This document is the human-readable OpenAPI source of truth. The backend's gener
 }
 ```
 
-`countryCode` is ISO 3166-1 alpha-2. Coordinates are WGS84.
+Coordinates are WGS84. Public/provider input rules are specified in section 10.
 
 ### Page envelope
 
@@ -57,26 +55,30 @@ This document is the human-readable OpenAPI source of truth. The backend's gener
 }
 ```
 
-`page` defaults to 1; `pageSize` defaults to 20 and must be 1-50. Requesting a page beyond the end returns `200` with empty `items` and accurate metadata.
+Requesting a page beyond the end returns `200` with an empty `items` array and accurate metadata.
 
-## 2. Error contract
-
-Every API failure uses RFC 7807 plus a stable application code:
+### Map bounds and envelope
 
 ```json
 {
-  "type": "urn:ugorjbe:problem:insufficient-capacity",
-  "title": "Nincs elegendő szabad hely.",
-  "status": 409,
-  "detail": "A kért 3 helyből jelenleg 2 foglalható.",
-  "instance": "/api/bookings",
-  "code": "INSUFFICIENT_CAPACITY",
-  "traceId": "00-7e...-01",
-  "availablePlaces": 2
+  "items": [],
+  "returnedCount": 0,
+  "limit": 100,
+  "isTruncated": false,
+  "bounds": {
+    "south": 47.420000,
+    "west": 18.920000,
+    "north": 47.590000,
+    "east": 19.180000
+  }
 }
 ```
 
-Validation adds field errors:
+The map response deliberately has no global `totalCount` and no page cursor. The server reads at most `limit + 1` eligible rows. `isTruncated=true` means more eligible rows exist in these bounds and clients must narrow the area/filters; it does not authorize an unbounded follow-up.
+
+## 2. Error contract
+
+Every non-2xx API response uses RFC 7807 with stable `code` and `traceId`:
 
 ```json
 {
@@ -84,38 +86,42 @@ Validation adds field errors:
   "title": "A kérés érvénytelen.",
   "status": 400,
   "detail": "Egy vagy több mező hibás.",
-  "instance": "/api/auth/register",
+  "instance": "/api/admin/offers",
   "code": "VALIDATION_FAILED",
   "traceId": "00-7e...-01",
   "errors": {
-    "email": ["Érvényes e-mail-cím szükséges."],
-    "password": ["A jelszó legalább 8 karakter legyen."]
+    "startsAtUtc": ["Az időpontnak UTC Z formátumúnak kell lennie."]
   }
 }
 ```
 
-Clients branch on `code`, not localized `title` or `detail`. Required codes are:
+Field keys are camelCase paths such as `address.latitude`. Clients branch on `code`, never localized prose.
 
-| HTTP | Code | Used when |
+| HTTP | Code | Meaning |
 | ---: | --- | --- |
-| 400 | `VALIDATION_FAILED` | Body/query/route validation fails |
+| 400 | `VALIDATION_FAILED` | Body, query, route, format, or field validation failed |
 | 401 | `AUTH_REQUIRED` | Token missing, invalid, or expired |
-| 401 | `AUTH_INVALID_CREDENTIALS` | Login email/password does not match |
-| 409 | `AUTH_EMAIL_EXISTS` | Normalized registration email already exists |
-| 404 | `OFFER_NOT_FOUND` | Offer does not exist or is not visible |
-| 409 | `OFFER_NOT_BOOKABLE` | Withdrawn, started, or booking cutoff reached |
-| 409 | `INSUFFICIENT_CAPACITY` | Fewer places remain than requested; includes `availablePlaces` |
-| 404 | `PROVIDER_NOT_FOUND` | Provider does not exist |
-| 404 | `BOOKING_NOT_FOUND` | Booking absent or owned by another user |
-| 409 | `CANCELLATION_NOT_ALLOWED` | Booking started/completed or cancellation deadline passed |
+| 401 | `AUTH_INVALID_CREDENTIALS` | Login email/password mismatch |
+| 403 | `AUTH_FORBIDDEN` | Valid identity lacks the required role |
+| 404 | `OFFER_NOT_FOUND` | Offer absent or intentionally not visible |
+| 404 | `PROVIDER_NOT_FOUND` | Provider absent |
+| 404 | `BOOKING_NOT_FOUND` | Booking absent or owned by someone else |
+| 409 | `AUTH_EMAIL_EXISTS` | Normalized registration email exists |
+| 409 | `OFFER_NOT_BOOKABLE` | Offer state, cutoff, start, or expiry rejects booking; response includes `reason` |
+| 409 | `INSUFFICIENT_CAPACITY` | Requested places unavailable; includes `availablePlaces` |
+| 409 | `CANCELLATION_NOT_ALLOWED` | Cancellation boundary/status rejects cancellation |
+| 409 | `OFFER_STATE_TRANSITION_INVALID` | Admin lifecycle action is not allowed from current state |
+| 409 | `OFFER_PUBLISH_NOT_READY` | Publish readiness changed/failed; includes field `errors` |
+| 409 | `OFFER_UPDATE_CONFLICT` | Update would violate confirmed-booking/capacity invariants |
+| 409 | `CONCURRENCY_CONFLICT` | Opaque admin version is stale |
 | 503 | `DEPENDENCY_UNAVAILABLE` | Health/dependency failure |
-| 500 | `INTERNAL_ERROR` | Unexpected server failure with no internal details exposed |
+| 500 | `INTERNAL_ERROR` | Unexpected server failure; no internals exposed |
 
-Favorite target misses use `OFFER_NOT_FOUND` or `PROVIDER_NOT_FOUND`. Unsupported content type may use the framework status but must retain the same problem shape and `VALIDATION_FAILED` code.
+Unsupported media/method/route errors retain the problem shape. `403` is never returned as `VALIDATION_FAILED`.
 
-## 3. DTOs
+## 3. Shared public DTOs
 
-### `UserDto`
+### UserDto and AuthResponse
 
 ```json
 {
@@ -123,56 +129,51 @@ Favorite target misses use `OFFER_NOT_FOUND` or `PROVIDER_NOT_FOUND`. Unsupporte
   "email": "demo@ugorjbe.local",
   "displayName": "Demó Család",
   "locale": "hu-HU",
-  "createdAtUtc": "2026-07-14T08:00:00Z"
+  "role": "customer",
+  "createdAtUtc": "2026-07-15T08:00:00Z"
 }
 ```
 
-### `AuthResponse`
+`role` is `customer` or `admin`. Registration always returns `customer`.
 
 ```json
 {
   "accessToken": "eyJ...",
   "tokenType": "Bearer",
-  "expiresAtUtc": "2026-07-14T12:00:00Z",
-  "user": { "id": "11111111-1111-1111-1111-111111111111", "email": "demo@ugorjbe.local", "displayName": "Demó Család", "locale": "hu-HU", "createdAtUtc": "2026-07-14T08:00:00Z" }
+  "expiresAtUtc": "2026-07-15T12:00:00Z",
+  "user": {
+    "id": "11111111-1111-1111-1111-111111111111",
+    "email": "demo@ugorjbe.local",
+    "displayName": "Demó Család",
+    "locale": "hu-HU",
+    "role": "customer",
+    "createdAtUtc": "2026-07-15T08:00:00Z"
+  }
 }
 ```
 
-### `ProviderSummaryDto`
+### ProviderSummaryDto and ProviderDetailDto
 
 ```json
 {
   "id": "22222222-2222-2222-2222-222222222222",
   "name": "Kerek Erdő Műhely",
   "shortDescription": "Kézműves programok családoknak.",
-  "address": { "postalCode": "1137", "city": "Budapest", "street": "Pozsonyi út 12.", "countryCode": "HU", "latitude": 47.518200, "longitude": 19.050400 },
+  "address": {
+    "postalCode": "1137",
+    "city": "Budapest",
+    "street": "Pozsonyi út 12.",
+    "countryCode": "HU",
+    "latitude": 47.518200,
+    "longitude": 19.050400
+  },
   "imageUrl": null
 }
 ```
 
-### `ProviderDetailDto`
+Detail adds `description`, nullable `phone`, `email`, `websiteUrl`, `accessibilityInfo`, and integer `activeOfferCount`. Active count uses the same live/bookable predicate as discovery.
 
-All summary fields plus:
-
-```json
-{
-  "id": "22222222-2222-2222-2222-222222222222",
-  "name": "Kerek Erdő Műhely",
-  "shortDescription": "Kézműves programok családoknak.",
-  "description": "Részletes, szolgáltató által megadott bemutatkozás.",
-  "address": { "postalCode": "1137", "city": "Budapest", "street": "Pozsonyi út 12.", "countryCode": "HU", "latitude": 47.518200, "longitude": 19.050400 },
-  "phone": "+3615550100",
-  "email": "hello@kerekerdo.example",
-  "websiteUrl": "https://example.invalid/kerekerdo",
-  "accessibilityInfo": "Babakocsival megközelíthető.",
-  "imageUrl": null,
-  "activeOfferCount": 2
-}
-```
-
-Contact and accessibility fields are nullable. `activeOfferCount` uses the same live/bookable rules as the default offer list.
-
-### `OfferSummaryDto`
+### OfferSummaryDto
 
 ```json
 {
@@ -181,13 +182,28 @@ Contact and accessibility fields are nullable. `activeOfferCount` uses the same 
     "id": "22222222-2222-2222-2222-222222222222",
     "name": "Kerek Erdő Műhely",
     "shortDescription": "Kézműves programok családoknak.",
-    "address": { "postalCode": "1137", "city": "Budapest", "street": "Pozsonyi út 12.", "countryCode": "HU", "latitude": 47.518200, "longitude": 19.050400 },
+    "address": {
+      "postalCode": "1137",
+      "city": "Budapest",
+      "street": "Pozsonyi út 12.",
+      "countryCode": "HU",
+      "latitude": 47.518200,
+      "longitude": 19.050400
+    },
     "imageUrl": null
+  },
+  "address": {
+    "postalCode": "1137",
+    "city": "Budapest",
+    "street": "Pozsonyi út 12.",
+    "countryCode": "HU",
+    "latitude": 47.518200,
+    "longitude": 19.050400
   },
   "title": "Délutáni agyagozás",
   "category": "WORKSHOP",
-  "startsAtUtc": "2026-07-14T14:00:00Z",
-  "endsAtUtc": "2026-07-14T15:30:00Z",
+  "startsAtUtc": "2026-07-15T14:00:00Z",
+  "endsAtUtc": "2026-07-15T15:30:00Z",
   "minChildAge": 5,
   "maxChildAge": 10,
   "originalUnitPrice": { "amount": 4800.00, "currency": "HUF" },
@@ -199,43 +215,30 @@ Contact and accessibility fields are nullable. `activeOfferCount` uses the same 
 }
 ```
 
-`distanceKm` is nullable and is populated only when the list request supplies coordinates. `discountPercent` is the whole number nearest to `(original-discounted)/original*100`, or zero when original price is zero.
+`address` is the event venue; `provider.address` is the provider's registered location. `distanceKm` is nullable and populated only when reference coordinates are supplied.
 
-### `OfferDetailDto`
+### OfferDetailDto
 
-All summary fields plus detail and booking rules:
+Detail contains all summary fields plus:
 
 ```json
 {
-  "id": "33333333-3333-3333-3333-333333333333",
-  "provider": { "id": "22222222-2222-2222-2222-222222222222", "name": "Kerek Erdő Műhely", "shortDescription": "Kézműves programok családoknak.", "address": { "postalCode": "1137", "city": "Budapest", "street": "Pozsonyi út 12.", "countryCode": "HU", "latitude": 47.518200, "longitude": 19.050400 }, "imageUrl": null },
-  "title": "Délutáni agyagozás",
-  "description": "Minden eszközt biztosítunk; kérjük, érkezzetek tíz perccel korábban.",
-  "category": "WORKSHOP",
-  "startsAtUtc": "2026-07-14T14:00:00Z",
-  "endsAtUtc": "2026-07-14T15:30:00Z",
-  "bookingCutoffUtc": "2026-07-14T13:30:00Z",
-  "cancelUntilUtc": "2026-07-14T12:00:00Z",
-  "minChildAge": 5,
-  "maxChildAge": 10,
+  "description": "Minden eszközt biztosítunk.",
+  "bookingCutoffUtc": "2026-07-15T13:30:00Z",
+  "cancelUntilUtc": "2026-07-15T12:00:00Z",
   "accompanimentRequired": true,
   "accessibilityInfo": "Babakocsival megközelíthető.",
-  "originalUnitPrice": { "amount": 4800.00, "currency": "HUF" },
-  "discountedUnitPrice": { "amount": 3200.00, "currency": "HUF" },
-  "discountPercent": 33,
   "totalCapacity": 10,
   "availablePlaces": 4,
   "isBookable": true,
   "unavailableReason": null,
-  "paymentMethod": "PAY_ON_ARRIVAL",
-  "distanceKm": null,
-  "imageUrl": null
+  "paymentMethod": "PAY_ON_ARRIVAL"
 }
 ```
 
-`unavailableReason` is nullable or one of `SOLD_OUT`, `BOOKING_CLOSED`, `STARTED`, `WITHDRAWN`. Detail remains readable for an expired/sold-out seeded offer; an unknown or non-public offer is `404`.
+`unavailableReason` is null or `SOLD_OUT`, `BOOKING_CLOSED`, `STARTED`, `UNPUBLISHED`, or `ARCHIVED`. A never-published draft returns `404`. Previously published offers remain readable by ID when unavailable; booking performs the definitive check.
 
-### `BookingDto`
+### BookingDto
 
 ```json
 {
@@ -247,67 +250,62 @@ All summary fields plus detail and booking rules:
   "paymentMethod": "PAY_ON_ARRIVAL",
   "bookingCode": "UGB-7K3M9Q",
   "qrPayload": "ugorjbe://booking/44444444-4444-4444-4444-444444444444?code=UGB-7K3M9Q",
-  "createdAtUtc": "2026-07-14T10:05:00Z",
+  "createdAtUtc": "2026-07-15T10:05:00Z",
   "cancelledAtUtc": null,
   "cancellationAllowed": true,
-  "cancellationDeadlineUtc": "2026-07-14T12:00:00Z",
+  "cancellationDeadlineUtc": "2026-07-15T12:00:00Z",
   "offer": {
     "id": "33333333-3333-3333-3333-333333333333",
     "title": "Délutáni agyagozás",
     "category": "WORKSHOP",
     "providerId": "22222222-2222-2222-2222-222222222222",
     "providerName": "Kerek Erdő Műhely",
-    "startsAtUtc": "2026-07-14T14:00:00Z",
-    "endsAtUtc": "2026-07-14T15:30:00Z",
-    "address": { "postalCode": "1137", "city": "Budapest", "street": "Pozsonyi út 12.", "countryCode": "HU", "latitude": 47.518200, "longitude": 19.050400 },
+    "startsAtUtc": "2026-07-15T14:00:00Z",
+    "endsAtUtc": "2026-07-15T15:30:00Z",
+    "address": {
+      "postalCode": "1137",
+      "city": "Budapest",
+      "street": "Pozsonyi út 12.",
+      "countryCode": "HU",
+      "latitude": 47.518200,
+      "longitude": 19.050400
+    },
     "imageUrl": null
   }
 }
 ```
 
-`status` is `CONFIRMED`, `CANCELLED`, or derived `COMPLETED`. `cancellationAllowed` is authoritative at response time. The code is unique and case-insensitive; the QR payload is not a bearer credential.
+Status is `CONFIRMED`, `CANCELLED`, or read-time `COMPLETED`. The QR payload is not an authentication credential.
 
-## 4. Endpoint summary
+## 4. Endpoint inventory
 
-| Method | Path | Auth | Success |
+| Method | Path | Authorization | Success |
 | --- | --- | --- | --- |
 | GET | `/health` | Public | 200 |
 | POST | `/api/auth/register` | Public | 201 |
 | POST | `/api/auth/login` | Public | 200 |
 | GET | `/api/auth/me` | Bearer | 200 |
-| GET | `/api/offers` | Public | 200 |
+| GET | `/api/offers` | Public | 200 page |
+| GET | `/api/offers/map` | Public | 200 map envelope |
 | GET | `/api/offers/{offerId}` | Public | 200 |
 | GET | `/api/providers/{providerId}` | Public | 200 |
 | POST | `/api/bookings` | Bearer | 201 |
-| GET | `/api/bookings` | Bearer | 200 |
-| GET | `/api/bookings/{bookingId}` | Bearer | 200 |
-| POST | `/api/bookings/{bookingId}/cancel` | Bearer | 200 |
-| GET | `/api/favorites/offers` | Bearer | 200 |
-| PUT | `/api/favorites/offers/{offerId}` | Bearer | 204 |
-| DELETE | `/api/favorites/offers/{offerId}` | Bearer | 204 |
-| GET | `/api/favorites/providers` | Bearer | 200 |
-| PUT | `/api/favorites/providers/{providerId}` | Bearer | 204 |
-| DELETE | `/api/favorites/providers/{providerId}` | Bearer | 204 |
+| GET | `/api/bookings` | Bearer | 200 page |
+| GET | `/api/bookings/{bookingId}` | Bearer/owner | 200 |
+| POST | `/api/bookings/{bookingId}/cancel` | Bearer/owner | 200 |
+| GET/PUT/DELETE | `/api/favorites/...` | Bearer | 200/204 |
+| GET | `/api/admin/dashboard` | Admin | 200 |
+| GET/POST | `/api/admin/providers` | Admin | 200/201 |
+| GET/PUT | `/api/admin/providers/{providerId}` | Admin | 200 |
+| GET/POST | `/api/admin/offers` | Admin | 200/201 |
+| GET/PUT | `/api/admin/offers/{offerId}` | Admin | 200 |
+| POST | `/api/admin/offers/{offerId}/publish` | Admin | 200 |
+| POST | `/api/admin/offers/{offerId}/unpublish` | Admin | 200 |
+| POST | `/api/admin/offers/{offerId}/archive` | Admin | 200 |
 
-## 5. Health
+## 5. Authentication and health
 
-### `GET /health`
-
-Checks API process and PostgreSQL connectivity.
-
-`200 OK`:
-
-```json
-{ "status": "Healthy" }
-```
-
-Dependency failure returns `503 DEPENDENCY_UNAVAILABLE` in the standard problem shape.
-
-## 6. Authentication
-
-### `POST /api/auth/register`
-
-Request:
+`POST /api/auth/register` accepts:
 
 ```json
 {
@@ -317,161 +315,333 @@ Request:
 }
 ```
 
-- `email`: valid format, maximum 254 characters, trimmed and normalized case-insensitively.
-- `password`: 8-128 characters with uppercase, lowercase, and digit.
-- `displayName`: trimmed, 2-80 characters.
+- email: trimmed valid address, maximum 254, normalized case-insensitively;
+- password: 8–128 with uppercase, lowercase, and digit;
+- displayName: trimmed 2–80.
 
-Returns `201 Created` and `AuthResponse`. Errors: `400 VALIDATION_FAILED`, `409 AUTH_EMAIL_EXISTS`.
+Registration cannot accept a role. `POST /api/auth/login` accepts required email/password and returns AuthResponse. Any credential mismatch is `401 AUTH_INVALID_CREDENTIALS`. `GET /api/auth/me` returns UserDto.
 
-### `POST /api/auth/login`
+`GET /health` checks PostgreSQL and returns `{"status":"Healthy"}` or `503 DEPENDENCY_UNAVAILABLE`.
 
-Request:
+## 6. Public discovery
 
-```json
-{ "email": "demo@ugorjbe.local", "password": "UgorjBe123!" }
-```
+### Shared discovery query
 
-Returns `200 OK` and `AuthResponse`. Malformed input is `400`; any email/password mismatch is `401 AUTH_INVALID_CREDENTIALS`.
+The following fields apply to `GET /api/offers` and `GET /api/offers/map`:
 
-### `GET /api/auth/me`
-
-Returns `200 OK` and `UserDto` for the bearer subject, or `401 AUTH_REQUIRED`.
-
-## 7. Catalog
-
-### `GET /api/offers`
-
-Returns a page of published, bookable offers with at least the requested availability.
-
-| Query | Type/default | Rule |
+| Query | Default | Rule |
 | --- | --- | --- |
-| `q` | string/null | Trimmed, max 100; case-insensitive title, description, and provider-name match |
-| `providerId` | UUID/null | Exact provider |
-| `category` | repeated enum/null | OR across valid category values |
-| `childAge` | integer/null | 0-18 and inside the offer's inclusive age range |
-| `startsFromUtc` | instant/now | Inclusive lower start-time bound |
-| `startsToUtc` | instant/end of current Budapest day | Exclusive upper start-time bound; must exceed lower bound |
-| `minPrice` | decimal/null | Discounted unit price, non-negative |
-| `maxPrice` | decimal/null | Discounted unit price, non-negative and >= `minPrice` |
-| `minAvailablePlaces` | integer/1 | 1-10 |
-| `latitude` | decimal/null | -90..90; must appear with longitude |
-| `longitude` | decimal/null | -180..180; must appear with latitude |
-| `maxDistanceKm` | decimal/null | >0 and <=100; requires both coordinates |
-| `sort` | enum/`START_TIME` | `START_TIME`, `PRICE`, `DISTANCE`, `DISCOUNT`; distance requires coordinates |
-| `direction` | enum/`ASC` | `ASC` or `DESC` |
-| `page` | integer/1 | >=1 |
-| `pageSize` | integer/20 | 1-50 |
+| `q` | null | trimmed, max 100; title, description, provider name, case-insensitive |
+| `providerId` | null | UUID exact match |
+| `category` | null | repeated enum, OR within categories |
+| `childAge` | null | integer 0–18 within inclusive offer range |
+| `startsFromUtc` | now | inclusive UTC lower start bound |
+| `startsToUtc` | end of current Budapest day | exclusive UTC upper start bound, after lower |
+| `minPrice` | null | discounted unit price, non-negative |
+| `maxPrice` | null | non-negative and >= minPrice |
+| `minAvailablePlaces` | 1 | integer 1–10 |
+| `latitude` | null | reference latitude, -90..90; paired with longitude |
+| `longitude` | null | reference longitude, -180..180; paired with latitude |
+| `maxDistanceKm` | null | >0 and <=100; requires reference pair |
+| `sort` | `START_TIME` | `START_TIME`, `PRICE`, `DISTANCE`, `DISCOUNT` |
+| `direction` | `ASC` | `ASC` or `DESC` |
 
-Repeated categories are encoded as `?category=WORKSHOP&category=MUSEUM`. When both time bounds are omitted, the API computes now through the end of the current `Europe/Budapest` day and transmits results in UTC. When only one is supplied, the missing bound uses its default. All sorts use offer UUID ascending as the last tie-breaker.
+`DISTANCE` requires reference coordinates. Filters combine with AND; repeated categories use OR. Discovery returns only `PUBLISHED` offers where booking cutoff and start are future and available places meet the requested minimum. Final ordering is UUID ascending after the chosen sort.
 
-Returns `200` page envelope of `OfferSummaryDto`; errors are `400 VALIDATION_FAILED`.
+### GET /api/offers
 
-### `GET /api/offers/{offerId}`
+Adds `page`/`pageSize` and optional `south`, `west`, `north`, `east`. Bounds must be all absent or all present. Present bounds use the map validation below and filter on offer address. Returns Page<OfferSummaryDto>.
 
-Optional query coordinates `latitude` and `longitude` follow the pair/range rules above and populate `distanceKm`.
+### GET /api/offers/map
 
-Returns `200 OfferDetailDto` or `404 OFFER_NOT_FOUND`. A known public offer may be returned with `isBookable=false`; create-booking performs the definitive check.
+Requires:
 
-### `GET /api/providers/{providerId}`
+| Query | Rule |
+| --- | --- |
+| `south` | -90..90 |
+| `north` | -90..90 and > south |
+| `west` | -180..180 |
+| `east` | -180..180 and > west |
+| `limit` | default 100; integer 1–200 |
 
-Returns `200 ProviderDetailDto` or `404 PROVIDER_NOT_FOUND`. Active offers are fetched with `GET /api/offers?providerId=...` so provider payloads stay bounded.
+Latitude span must be <=2 degrees; longitude span <=3 degrees. Anti-meridian boxes are not supported. Inclusion is `latitude >= south && latitude < north && longitude >= west && longitude < east`. Returns MapOfferEnvelope of OfferSummaryDto.
 
-## 8. Bookings
+Invalid/missing/unbounded boxes return `400 VALIDATION_FAILED` with errors on the relevant bound. `isTruncated` is based on one extra deterministic row.
 
-All endpoints require a bearer token and operate only on the current user's bookings.
+### Detail
 
-### `POST /api/bookings`
+`GET /api/offers/{id}` optionally accepts paired reference latitude/longitude. `GET /api/providers/{id}` returns ProviderDetailDto. Unknown or never-public resources return the corresponding `404`.
 
-Request:
+## 7. Existing bookings and favorites
+
+`POST /api/bookings` accepts `{"offerId":"uuid","quantity":2}`, quantity 1–10. The API locks the offer row, revalidates state/cutoff/start/capacity, snapshots authoritative price and display data, and returns `201` plus `Location` and BookingDto. Errors include `OFFER_NOT_BOOKABLE` with `reason` and `INSUFFICIENT_CAPACITY` with the locked `availablePlaces`.
+
+`GET /api/bookings` accepts `scope=ACTIVE|PREVIOUS|ALL` plus page fields. Active means confirmed and not ended. Previous includes cancelled and derived completed. Order is createdAt descending, then ID ascending.
+
+Cancellation remains owner-only, allowed when persisted confirmed, `now <= cancellationDeadlineUtc`, and `now < startsAtUtc`. It restores capacity in the same row-lock transaction. Repeating a successful cancellation returns the same logical cancelled booking and never restores twice.
+
+Favorite offer/provider PUT and DELETE remain idempotent. Favorite pages retain unavailable saved offers. Another user's booking remains indistinguishable from absent.
+
+## 8. Administrator DTOs
+
+### AdminProviderSummaryDto
 
 ```json
 {
-  "offerId": "33333333-3333-3333-3333-333333333333",
-  "quantity": 2
+  "id": "22222222-2222-2222-2222-222222222222",
+  "name": "Kerek Erdő Műhely",
+  "shortDescription": "Kézműves programok családoknak.",
+  "address": {
+    "postalCode": "1137",
+    "city": "Budapest",
+    "street": "Pozsonyi út 12.",
+    "countryCode": "HU",
+    "latitude": 47.518200,
+    "longitude": 19.050400
+  },
+  "imageUrl": null,
+  "activeOfferCount": 2,
+  "totalOfferCount": 5,
+  "updatedAtUtc": "2026-07-15T09:00:00Z",
+  "version": "734"
 }
 ```
 
-`quantity` is 1-10. The API ignores any client price/capacity assumptions and snapshots the authoritative offer price. The PostgreSQL row-lock transaction described in `ARCHITECTURE.md` is mandatory.
+AdminProviderDetailDto adds `description` and nullable `phone`, `email`, `websiteUrl`, and `accessibilityInfo`.
 
-Returns `201 Created`, `Location: /api/bookings/{id}`, and `BookingDto`.
+### Provider write request
 
-Errors: `400 VALIDATION_FAILED`, `404 OFFER_NOT_FOUND`, `409 OFFER_NOT_BOOKABLE`, or `409 INSUFFICIENT_CAPACITY`. `INSUFFICIENT_CAPACITY` includes the non-negative `availablePlaces` extension observed under lock.
+```json
+{
+  "name": "Kerek Erdő Műhely",
+  "shortDescription": "Kézműves programok családoknak.",
+  "description": "Családi foglalkozások Újlipótvárosban.",
+  "address": {
+    "postalCode": "1137",
+    "city": "Budapest",
+    "street": "Pozsonyi út 12.",
+    "countryCode": "HU",
+    "latitude": 47.518200,
+    "longitude": 19.050400
+  },
+  "phone": "+3615550100",
+  "email": "hello@kerekerdo.example",
+  "websiteUrl": "https://example.invalid/kerekerdo",
+  "accessibilityInfo": "Babakocsival megközelíthető.",
+  "imageUrl": null
+}
+```
 
-### `GET /api/bookings`
+Update has the same fields plus required `version`.
 
-| Query | Type/default | Rule |
-| --- | --- | --- |
-| `scope` | enum/`ACTIVE` | `ACTIVE`, `PREVIOUS`, or `ALL` |
-| `page` | integer/1 | >=1 |
-| `pageSize` | integer/20 | 1-50 |
+### AdminOfferSummaryDto
 
-- `ACTIVE`: persisted confirmed and `endsAtUtc > now`.
-- `PREVIOUS`: cancelled, or persisted confirmed with `endsAtUtc <= now` (returned as `COMPLETED`).
-- `ALL`: both.
+```json
+{
+  "id": "33333333-3333-3333-3333-333333333333",
+  "providerId": "22222222-2222-2222-2222-222222222222",
+  "providerName": "Kerek Erdő Műhely",
+  "title": "Délutáni agyagozás",
+  "category": "WORKSHOP",
+  "status": "PUBLISHED",
+  "startsAtUtc": "2026-07-15T14:00:00Z",
+  "endsAtUtc": "2026-07-15T15:30:00Z",
+  "address": {
+    "postalCode": "1137",
+    "city": "Budapest",
+    "street": "Pozsonyi út 12.",
+    "countryCode": "HU",
+    "latitude": 47.518200,
+    "longitude": 19.050400
+  },
+  "discountedUnitPrice": { "amount": 3200.00, "currency": "HUF" },
+  "totalCapacity": 10,
+  "reservedQuantity": 6,
+  "availablePlaces": 4,
+  "updatedAtUtc": "2026-07-15T09:00:00Z",
+  "version": "811"
+}
+```
 
-Sort order is `createdAtUtc DESC`, then UUID ascending. Returns a page envelope of `BookingDto`.
+### AdminOfferDetailDto and write request
 
-### `GET /api/bookings/{bookingId}`
+Detail contains every write field below plus `id`, providerName, `status`, `reservedQuantity`, `availablePlaces`, `publishedAtUtc`, `archivedAtUtc`, `createdAtUtc`, `updatedAtUtc`, and `version`.
 
-Returns `200 BookingDto` or `404 BOOKING_NOT_FOUND`. Another user's ID is deliberately indistinguishable from an absent ID.
+```json
+{
+  "providerId": "22222222-2222-2222-2222-222222222222",
+  "title": "Délutáni agyagozás",
+  "description": "Minden eszközt biztosítunk.",
+  "category": "WORKSHOP",
+  "address": {
+    "postalCode": "1137",
+    "city": "Budapest",
+    "street": "Pozsonyi út 12.",
+    "countryCode": "HU",
+    "latitude": 47.518200,
+    "longitude": 19.050400
+  },
+  "startsAtUtc": "2026-07-15T14:00:00Z",
+  "endsAtUtc": "2026-07-15T15:30:00Z",
+  "bookingCutoffUtc": "2026-07-15T13:30:00Z",
+  "cancelUntilUtc": "2026-07-15T12:00:00Z",
+  "minChildAge": 5,
+  "maxChildAge": 10,
+  "accompanimentRequired": true,
+  "accessibilityInfo": "Babakocsival megközelíthető.",
+  "originalUnitPrice": { "amount": 4800.00, "currency": "HUF" },
+  "discountedUnitPrice": { "amount": 3200.00, "currency": "HUF" },
+  "totalCapacity": 10,
+  "imageUrl": null
+}
+```
 
-### `POST /api/bookings/{bookingId}/cancel`
+Create uses that body and returns a `DRAFT`. Update has the same fields plus required `version`.
 
-No request body. Cancellation is allowed for a confirmed booking when `now <= cancellationDeadlineUtc` and `now < startsAtUtc`. It restores capacity in the same row-lock transaction.
+### AdminDashboardDto
 
-Returns `200 BookingDto` with `status=CANCELLED`. Repeating cancellation of that cancelled booking returns the same logical result with `200` and does not change capacity again. Errors: `404 BOOKING_NOT_FOUND`, `409 CANCELLATION_NOT_ALLOWED`.
+```json
+{
+  "providerCount": 4,
+  "draftOfferCount": 1,
+  "publishedOfferCount": 6,
+  "unpublishedOfferCount": 1,
+  "archivedOfferCount": 2,
+  "startingWithin24HoursCount": 4,
+  "nextOffers": []
+}
+```
 
-## 9. Favorites
+`nextOffers` contains at most five AdminOfferSummaryDto values that are `PUBLISHED` and start in the future, ordered by start then ID. Starting-soon uses injected UTC now through now + 24 hours.
 
-All endpoints require a bearer token. Favorite creation/removal is idempotent.
+## 9. Administrator endpoints and lifecycle
 
-### `GET /api/favorites/offers`
+Every endpoint in this section requires `role=admin`.
 
-Accepts `page` and `pageSize`. Returns a page envelope of `OfferSummaryDto`, ordered by favorite creation time descending then offer UUID ascending. Unlike discovery, saved offers remain in this list when sold out or expired; their summary availability may be zero. Android opens detail to display the authoritative unavailable reason.
+### Dashboard
 
-### `PUT /api/favorites/offers/{offerId}`
+`GET /api/admin/dashboard` returns AdminDashboardDto. Counts include all stored providers/offers; starting-soon/next use only published future offers.
 
-Adds the existing offer to the current user's favorites. Returns `204 No Content` whether newly added or already present. Unknown/non-public target: `404 OFFER_NOT_FOUND`.
+### Providers
 
-### `DELETE /api/favorites/offers/{offerId}`
+`GET /api/admin/providers` query:
 
-Removes the favorite. Returns `204 No Content` whether present or absent. This operation does not require the target offer still to be live, but an unknown UUID with no favorite is also an idempotent `204` to allow stale local cleanup.
+- `q`: optional trimmed max 100, name/description/city;
+- `page` and `pageSize`;
+- order: name ascending, ID ascending.
 
-### `GET /api/favorites/providers`
+`POST /api/admin/providers` accepts ProviderCreateRequest, returns `201`, Location, and detail. `GET /api/admin/providers/{id}` returns detail. `PUT` accepts ProviderUpdateRequest and returns updated detail. There is no delete.
 
-Accepts `page` and `pageSize`. Returns a page envelope of `ProviderSummaryDto`, ordered by favorite creation time descending then provider UUID ascending.
+### Offers
 
-### `PUT /api/favorites/providers/{providerId}`
+`GET /api/admin/offers` query:
 
-Adds the existing provider. Returns `204`; repeated add is `204`. Unknown provider: `404 PROVIDER_NOT_FOUND`.
+| Query | Rule |
+| --- | --- |
+| `q` | optional max 100, title/description/provider |
+| `providerId` | optional UUID |
+| `category` | optional repeated enum |
+| `status` | optional repeated `DRAFT/PUBLISHED/UNPUBLISHED/ARCHIVED` |
+| `startsFromUtc` / `startsToUtc` | optional UTC bounds; paired ordering |
+| `page` / `pageSize` | standard |
 
-### `DELETE /api/favorites/providers/{providerId}`
+Order is startsAtUtc ascending then ID. `POST` creates and returns a `DRAFT` with `201` and Location. `GET /{id}` returns any admin-visible state. `PUT` replaces editable fields and returns detail.
 
-Removes the favorite. Returns `204` whether present or absent. An unknown UUID with no favorite also returns `204` for stale local cleanup.
+Lifecycle requests have body:
 
-## 10. OpenAPI and Android mapping requirements
+```json
+{ "version": "811" }
+```
 
-Swagger UI and the OpenAPI JSON are enabled in Development. The generated specification must declare bearer auth, request validation, success schemas, the common problem schema, enums, and nullable fields.
+Allowed transitions:
 
-Android mapping is fixed as follows:
+- publish: `DRAFT -> PUBLISHED` and `UNPUBLISHED -> PUBLISHED`;
+- unpublish: `PUBLISHED -> UNPUBLISHED`;
+- archive: `DRAFT|PUBLISHED|UNPUBLISHED -> ARCHIVED`;
+- `ARCHIVED` has no outgoing transition and cannot be updated.
 
-- HTTP `401` clears the stored token and returns to authentication; login's `AUTH_INVALID_CREDENTIALS` remains an inline login error.
-- `INSUFFICIENT_CAPACITY` updates the quantity limit from `availablePlaces` and prompts the user rather than claiming success.
-- `OFFER_NOT_BOOKABLE` refreshes offer detail and renders the returned unavailability state.
-- `CANCELLATION_NOT_ALLOWED` refreshes booking detail.
-- `500`, `503`, connectivity, and timeout failures are retryable UI errors; validation and domain conflicts are not auto-retried.
-- A successful booking is rendered only from the returned `BookingDto`; QR content uses its exact `qrPayload`.
+Repeated lifecycle calls are not silently idempotent; if the current state is not an allowed source, return `409 OFFER_STATE_TRANSITION_INVALID` with the current state in `currentStatus`.
 
-## 11. Contract acceptance examples
+Publish revalidates that provider exists, all fields are valid, `bookingCutoffUtc > now`, `startsAtUtc > now`, and `availablePlaces > 0`. Failure is `409 OFFER_PUBLISH_NOT_READY` with field errors. Unpublish/archive does not cancel bookings or decrement reserved quantity.
 
-The implementation is contract-complete when automated tests demonstrate:
+## 10. Exact administrator validation
 
-1. registration returns a usable bearer token and `/api/auth/me` identity;
-2. default offer discovery returns only current Budapest-day bookable inventory;
-3. filters combine with AND, while repeated categories combine with OR;
-4. an expired/cutoff offer returns `OFFER_NOT_BOOKABLE` on reservation;
-5. two requests for the last place yield one `201` and one `409 INSUFFICIENT_CAPACITY`;
-6. cancellation before the boundary restores capacity exactly once; after the boundary it returns `CANCELLATION_NOT_ALLOWED`;
-7. another user cannot see or cancel a booking;
-8. favorite PUT/DELETE operations are idempotent and favorite lists retain unavailable saved items;
-9. Android can execute login -> browse -> detail -> reserve -> booking code using `10.0.2.2:8080`.
+Whitespace is trimmed before length checks. Required strings cannot become empty.
+
+Provider:
+
+- name 2–120; shortDescription 2–240; description 10–2000;
+- postalCode 1–16; city 2–100; street 2–200;
+- countryCode exactly two uppercase ASCII letters;
+- latitude -90..90; longitude -180..180;
+- phone nullable max 40;
+- email nullable valid max 254;
+- websiteUrl nullable absolute HTTP/HTTPS max 500;
+- accessibilityInfo nullable max 500;
+- imageUrl nullable absolute HTTP/HTTPS max 1000.
+
+Offer:
+
+- existing providerId;
+- title 2–160; description 10–3000;
+- category one of `PLAYHOUSE`, `WORKSHOP`, `MOVEMENT`, `SWIMMING`, `SPORT`, `MUSEUM`, `PARENT_CHILD`;
+- event address follows provider address rules;
+- all four timestamps are required UTC `Z` instants;
+- endsAtUtc > startsAtUtc;
+- bookingCutoffUtc <= startsAtUtc and cancelUntilUtc <= startsAtUtc;
+- ages are integers with `0 <= minChildAge <= maxChildAge <= 18`;
+- both money values follow Money rules, same currency, discounted <= original;
+- totalCapacity integer 1–10000;
+- accessibilityInfo/imageUrl use provider limits.
+
+Update:
+
+- `version` is required and must match;
+- reservedQuantity is never accepted from the client;
+- totalCapacity cannot be below reservedQuantity;
+- when a confirmed booking exists, providerId, address, startsAtUtc, endsAtUtc, cancelUntilUtc, and currency must be unchanged; otherwise `409 OFFER_UPDATE_CONFLICT` with `conflictingFields`;
+- any database constraint failure is mapped to a stable validation/conflict problem, not a raw exception.
+
+## 11. Time-zone contract for the web
+
+Admin forms label and interpret values in `Europe/Budapest`, but send only UTC `Z` strings. The web must:
+
+- round-trip local input to detect nonexistent spring-forward times;
+- reject local values with zero or multiple possible instants, including autumn overlap;
+- preview the selected UTC instant;
+- convert UTC responses back through `Europe/Budapest` rather than the browser zone.
+
+Example: unambiguous Budapest `2026-07-15 16:00` (UTC+02:00) is sent as `2026-07-15T14:00:00Z`. The API does not accept `2026-07-15T16:00` or `2026-07-15T16:00:00+02:00` for admin writes.
+
+## 12. CORS, OpenAPI, and client failure mapping
+
+Development CORS allows exactly configured `http://localhost:5173`, no credentials, Authorization/Content-Type headers, and GET/POST/PUT/DELETE/OPTIONS. Compose admin uses relative same-origin requests and nginx proxying, so it needs no cross-origin exception.
+
+OpenAPI in Development declares all DTOs, enum strings, bearer security, `AdminOnly` operations, problem extensions, nullable fields, query repetition, and every success/error status above.
+
+Client mapping:
+
+- Android `401` clears customer token and returns to auth; login credential error remains inline.
+- Admin web `401` clears in-memory session/query cache and returns to login; `403` shows unauthorized.
+- `INSUFFICIENT_CAPACITY` updates the authoritative limit.
+- `OFFER_NOT_BOOKABLE` refreshes detail and renders `reason`.
+- `CONCURRENCY_CONFLICT` forces admin detail refresh and explicit re-entry; clients never automatically overwrite.
+- `500`, `503`, connectivity, and timeouts are retryable; validation and domain conflicts are not automatically retried.
+
+## 13. Contract acceptance
+
+Automated acceptance demonstrates:
+
+1. registration/login/me preserve customer behavior and expose role;
+2. map bounds are mandatory, validated, geographically correct, capped, and report truncation;
+3. map and list share every filter and eligibility rule;
+4. expired, unpublished, archived, full, and cutoff offers are absent from discovery and unbookable;
+5. customer/invalid tokens receive `403`/`401` for admin APIs;
+6. admin can create/update a provider and create/publish an offer;
+7. a published admin-created offer appears through public map/list discovery;
+8. invalid inputs and lifecycle transitions produce exact problem codes/fields;
+9. capacity cannot be set below reserved quantity and protected event fields cannot move under confirmed bookings;
+10. two final-place bookings still produce exactly one `201` and one `409 INSUFFICIENT_CAPACITY`;
+11. cancellation and favorites retain original ownership/idempotency behavior;
+12. DST gap/overlap inputs are blocked in web conversion and only UTC reaches the API;
+13. generated OpenAPI matches this endpoint, authorization, enum, and error contract.

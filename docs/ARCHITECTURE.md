@@ -1,298 +1,285 @@
-# UgorjBe MVP architecture
+# UgorjBe Phase 2 architecture
 
-**Status:** Frozen for MVP implementation  
-**Date:** 2026-07-14  
-**Product decision:** [PRODUCT_DECISION.md](PRODUCT_DECISION.md)  
+**Status:** Frozen for Phase 2 implementation<br>
+**Date:** 2026-07-15<br>
+**Product:** [PRODUCT_DECISION.md](PRODUCT_DECISION.md)<br>
+**UX:** [UX_DIRECTION.md](UX_DIRECTION.md)<br>
 **Wire contract:** [API_CONTRACT.md](API_CONTRACT.md)
 
-This document is the shared implementation boundary for the ASP.NET Core API and the native Android client. Changes to a frozen decision require updating both documents and notifying both implementers before code changes.
+This document is the shared implementation boundary for the ASP.NET Core API, native Android app, and administration web. The working authentication, booking, cancellation, favorites, expiry, capacity, and PostgreSQL row-lock behavior remain authoritative. A contract change requires coordinated documentation and tests before client-specific changes.
 
-## 1. Scope and architectural goals
+## 1. System decision
 
-UgorjBe is a Budapest-first marketplace for discounted, same-day empty places in family activities. The MVP proves one customer flow: authenticate, discover a suitable live offer, inspect it, reserve capacity, and receive a booking code. It also supports booking history, allowed cancellation, and favorite offers/providers.
+UgorjBe remains one modular monolith and one PostgreSQL database. Phase 2 adds a bounded map query and an administrator module to the API, a map-first Android presentation, and a React administration SPA.
 
-The architecture optimizes for a buildable local MVP:
+```text
+Android customer app ─┐
+                      ├─ HTTPS/JSON ─ ASP.NET Core API ─ EF Core ─ PostgreSQL
+React admin SPA ──────┘
+```
 
-- one ASP.NET Core 8 modular monolith and one PostgreSQL database;
-- one native Kotlin/Jetpack Compose Android application;
-- synchronous JSON/HTTPS APIs only;
-- pay on arrival; no payment provider or financial ledger;
-- seeded providers and offers; no provider/admin application;
-- no message broker, distributed cache, background worker, microservice, or cloud dependency.
+There is no direct database access from either client, no second backend, no message broker, and no mock runtime catalog. The API is the authority for visibility, lifecycle, price, booking eligibility, capacity, and cancellation. Existing bookings are immutable snapshots except for their own cancellation status.
 
-The API is the authority for offer validity, price, capacity, booking status, and cancellation eligibility. Android must never infer that a reservation succeeded from cached data.
+The administration web stack is React + TypeScript + Vite, React Router, TanStack Query, React Hook Form, and Zod. Exact mutually compatible package versions are selected and locked at implementation time. The SPA uses backend APIs only.
 
-## 2. Repository structure
+## 2. Repository and dependency boundaries
 
 ```text
 /
 |-- backend/
-|   |-- UgorjBe.sln
 |   |-- src/
-|   |   |-- UgorjBe.Api/              # HTTP composition root, middleware, endpoints
-|   |   |-- UgorjBe.Application/      # use cases, DTO mapping, ports, validation
-|   |   |-- UgorjBe.Domain/           # entities, value rules, enums; no EF/HTTP refs
-|   |   `-- UgorjBe.Infrastructure/   # EF Core, Npgsql, JWT, password hashing, seed
+|   |   |-- UgorjBe.Api/
+|   |   |-- UgorjBe.Application/
+|   |   |-- UgorjBe.Domain/
+|   |   `-- UgorjBe.Infrastructure/
 |   `-- tests/
-|       |-- UgorjBe.UnitTests/
-|       `-- UgorjBe.IntegrationTests/
 |-- android/
-|   |-- settings.gradle.kts
-|   |-- build.gradle.kts
-|   |-- gradle.properties
-|   `-- app/
-|       |-- build.gradle.kts
-|       `-- src/
-|           |-- main/java/hu/ugorjbe/app/
-|           |   |-- data/             # Retrofit DTOs, API, repositories, token store
-|           |   |-- domain/           # UI-facing models and repository interfaces
-|           |   |-- di/               # Hilt modules
-|           |   `-- ui/               # navigation, screens, ViewModels, theme
-|           `-- test/                 # ViewModel/repository unit tests
+|-- web-admin/
+|   |-- src/
+|   |   |-- api/
+|   |   |-- auth/
+|   |   |-- components/
+|   |   |-- features/
+|   |   |-- routes/
+|   |   `-- styles/
+|   |-- tests/
+|   |-- Dockerfile
+|   `-- nginx.conf
 |-- docs/
-|   |-- PRODUCT_DECISION.md
-|   |-- ARCHITECTURE.md
-|   `-- API_CONTRACT.md
 |-- docker-compose.yml
-|-- .env.example
-`-- README.md
+`-- .github/workflows/ci.yml
 ```
 
-Projects form a one-way dependency graph:
+Backend dependencies remain one-way:
 
 ```text
 Api -> Application -> Domain
 Api -> Infrastructure -> Application + Domain
 ```
 
-`Domain` has no ASP.NET Core, EF Core, JSON, or Npgsql references. `Application` defines use cases and ports. `Infrastructure` implements persistence, authentication, clock, and seeding. `Api` wires dependencies and translates use-case results into the contract. Modules are folders/namespaces inside this monolith: Identity, Catalog, Bookings, and Favorites. They share one EF `DbContext` and database transaction boundary in the MVP.
+Identity, Catalog, Bookings, Favorites, and Administration are modules in the same process and DbContext. Application defines contracts/use cases; Infrastructure implements EF, JWT, clocks, seed, and queries; Api owns HTTP, authorization policies, CORS, OpenAPI, and problem responses.
 
-## 3. Backend runtime and dependencies
+## 3. Domain evolution and migration
 
-- .NET 8 SDK and ASP.NET Core Web API.
-- EF Core 8 with `Npgsql.EntityFrameworkCore.PostgreSQL` 8.x.
-- ASP.NET Core JWT bearer authentication.
-- ASP.NET Core `PasswordHasher<TUser>` for salted, iterated password hashes.
-- Built-in OpenAPI/Swagger generation and health checks.
-- xUnit for unit and integration tests. Integration tests run against PostgreSQL (Testcontainers where Docker is available, otherwise the documented test database connection string).
-- `TimeProvider` is injected wherever current time is needed so expiry rules are deterministic in tests.
+### Users and roles
 
-Package versions must remain compatible with .NET 8. Do not introduce ASP.NET Identity tables solely for this MVP; its password hasher is used behind an application abstraction.
+`User.Role` is a required lowercase value: `customer` or `admin`. Registration always creates `customer`. An administrator is created only by guarded development seed or an out-of-band production process. JWTs include the role claim; the backend policy `AdminOnly` requires `admin`.
 
-## 4. Android runtime and dependencies
+`UserDto` gains `role`. This is an additive customer-client change.
 
-- Kotlin, a current stable Android Gradle Plugin compatible with the available JDK, minimum SDK 26, target/compile SDK available in the build environment.
-- Single activity, Jetpack Compose and Material 3.
-- Navigation Compose; one `NavHost` with auth, discovery, detail, booking, favorites, and profile destinations.
-- Hilt for dependency injection.
-- ViewModel, coroutines, and `StateFlow` for UI state.
-- Retrofit and OkHttp for HTTP. JSON names follow the API's camelCase contract.
-- DataStore stores only the access token and minimal signed-in user identity. Catalog data is not persisted in Room for MVP.
-- Repository calls expose success/failure results. Every network screen models loading, content, empty, error, and retry explicitly.
+### Providers
 
-The debug base URL defaults to `http://10.0.2.2:8080/`, which maps the standard Android Emulator to the host API. The debug manifest permits cleartext only for local development. Release configuration must not contain a development signing key, API secret, or cleartext exception.
+Providers become administrator-managed but are never hard-deleted. The Phase 2 API supports list, detail, create, and update. Existing foreign keys remain restrictive. A provider update does not rewrite historical booking snapshots.
 
-## 5. Domain model
+### Offers and event location
 
-All IDs are UUIDs generated by the API. Database names use `snake_case`; C# and JSON use their language conventions.
-
-### User
-
-- `Id`
-- `Email`, plus `NormalizedEmail` with a unique index
-- `PasswordHash`
-- `DisplayName`
-- `Locale` (`hu-HU` in MVP)
-- `Role` (`Customer`; provider/admin identities are out of scope)
-- `CreatedAtUtc`
-
-Email comparison is case-insensitive through the invariant normalized value. Child names, birth dates, and child personal data are not stored.
-
-### Provider
-
-- `Id`, `Name`, `Description`
-- postal address fields and public contact fields
-- `Latitude`, `Longitude`
-- optional `ImageUrl`, `AccessibilityInfo`
-- `CreatedAtUtc`, `UpdatedAtUtc`
-
-Providers are seeded/read-only through the public contract.
-
-### Offer
-
-- `Id`, `ProviderId`, `Title`, `Description`, `Category`
-- `StartsAtUtc`, `EndsAtUtc`, `BookingCutoffUtc`, `CancelUntilUtc`
-- `MinChildAge`, `MaxChildAge`, `AccompanimentRequired`
-- optional `AccessibilityInfo`, `ImageUrl`
-- `OriginalUnitPrice`, `DiscountedUnitPrice`, `Currency`
-- `TotalCapacity`, `ReservedQuantity`
-- `Status` (`Published`, `Withdrawn`)
-- `CreatedAtUtc`, `UpdatedAtUtc`
-- PostgreSQL row concurrency token (`xmin`) or equivalent EF concurrency token
-
-Categories are the closed MVP values `PLAYHOUSE`, `WORKSHOP`, `MOVEMENT`, `SWIMMING`, `SPORT`, `MUSEUM`, and `PARENT_CHILD`. Additions require a contract change because Android renders localized labels by enum value.
-
-Invariants:
-
-- `EndsAtUtc > StartsAtUtc`.
-- `BookingCutoffUtc <= StartsAtUtc`; a booking is accepted only while `now < BookingCutoffUtc` and `now < StartsAtUtc`.
-- `CancelUntilUtc <= StartsAtUtc`.
-- `0 <= MinChildAge <= MaxChildAge <= 18`.
-- both prices are non-negative and discounted price is no greater than original price;
-- currency is a three-letter uppercase ISO 4217 code; seeded data uses `HUF`;
-- `TotalCapacity > 0` and `0 <= ReservedQuantity <= TotalCapacity`.
-
-Availability is derived as `TotalCapacity - ReservedQuantity`. An offer is live only when published, before cutoff and start, and availability is positive. The database also enforces capacity and monetary check constraints.
-
-### Booking
-
-- `Id`, `UserId`, `OfferId`
-- persisted `Status` (`Confirmed` or `Cancelled`)
-- `Quantity`
-- unit and total price snapshots plus currency
-- offer title, provider name, start/end, and address snapshots for stable history
-- unique human-readable `BookingCode`
-- deterministic non-secret `QrPayload`
-- `CreatedAtUtc`, optional `CancelledAtUtc`
-- concurrency token
-
-The contract exposes three booking states:
+Offer lifecycle becomes:
 
 ```text
-                  customer cancellation at/before CancelUntilUtc
-CONFIRMED ------------------------------------------------------> CANCELLED
-    |
-    | time reaches EndsAtUtc while still confirmed (derived, not persisted)
-    v
-COMPLETED
+DRAFT ───────> PUBLISHED <──────> UNPUBLISHED
+  └──────────────┴────────────────────┴──────> ARCHIVED
 ```
 
-`COMPLETED` is a read-time projection of persisted `Confirmed`; no scheduler is required. `CANCELLED` and `COMPLETED` are terminal. Cancellation is allowed only for the owner, only while persisted status is confirmed, and when `now <= CancelUntilUtc` and `now < StartsAtUtc`. Repeating cancellation of an already-cancelled booking is idempotent and returns the cancelled representation. A completed booking cannot be cancelled.
+- `DRAFT` is server-valid but not public or bookable.
+- `PUBLISHED` is discoverable only while all existing live/bookable predicates also hold.
+- `UNPUBLISHED` is hidden from discovery and rejects new bookings; it may be republished.
+- `ARCHIVED` is terminal, hidden from discovery, and rejects new bookings.
+- Publish and republish set `PublishedAtUtc` on first publish and `UpdatedAtUtc` on every transition.
+- Archive sets `ArchivedAtUtc`. Unpublish/archive never cancel an existing booking or change reserved quantity.
+- A draft that has never been published returns public `404`. A known, previously published offer may still be opened from a favorite/booking link and reports an authoritative unavailable reason.
 
-### Favorites
+Each offer gains its own `Address` fields, including WGS84 coordinates. This supports an event away from the provider's registered address. Public offer DTOs expose offer `address`; the nested provider keeps its provider address for compatibility. New bookings snapshot the offer address. The migration copies each existing provider address to its existing offers.
 
-- `FavoriteOffer(UserId, OfferId, CreatedAtUtc)` with composite primary key.
-- `FavoriteProvider(UserId, ProviderId, CreatedAtUtc)` with composite primary key.
+The migration:
 
-Adding an existing favorite and removing a missing favorite are idempotent.
+1. adds offer postal/city/street/country/latitude/longitude columns and backfills from provider;
+2. maps existing `WITHDRAWN` values to `UNPUBLISHED`;
+3. adds `PublishedAtUtc`, `ArchivedAtUtc`, and update concurrency configuration;
+4. preserves all IDs, bookings, favorites, quantities, and price snapshots;
+5. adds the indexes below before enabling the new queries.
 
-## 6. Booking transaction and overbooking prevention
+Required indexes:
 
-The offer summary's `availablePlaces` is advisory. Creation always revalidates under a PostgreSQL row lock.
-
-Create-booking algorithm:
-
-1. Authenticate the customer and validate `quantity` is between 1 and 10.
-2. Begin an EF Core transaction at `READ COMMITTED`.
-3. Load the offer and provider using `SELECT ... FOR UPDATE` on the offer row.
-4. Read one injected UTC `now` value and, while holding the lock, validate published status, cutoff/start, and `TotalCapacity - ReservedQuantity >= quantity`.
-5. Increment `ReservedQuantity`, create the booking with price and display snapshots, generate a unique code, and save both records.
-6. Commit, then return `201 Created` with the authoritative booking.
-
-Concurrent creators for one offer serialize on the same row. The second transaction sees the first committed quantity and receives `INSUFFICIENT_CAPACITY` rather than overbooking. A database constraint on reserved quantity is a final backstop. Do not replace this with an in-memory lock, a preflight count, or Android-side capacity checks.
-
-Cancellation uses one transaction: lock the booking row, return idempotently if already cancelled, lock the referenced offer row, revalidate time and ownership, set cancelled fields, decrement `ReservedQuantity`, save, and commit. All rollback paths leave capacity unchanged. Integration tests must use two independent database connections/tasks competing for the final place and assert exactly one success.
-
-## 7. Authentication and authorization
-
-Registration and login return an access token plus the current user DTO. There is no refresh token, password reset, email verification, logout endpoint, or social login in MVP.
-
-- JWT signing uses an HMAC SHA-256 key supplied only by `Jwt__SigningKey` environment configuration; it must be at least 32 bytes.
-- Validate signature, issuer (`ugorjbe-api`), audience (`ugorjbe-android`), and expiry with at most 60 seconds clock skew.
-- Access lifetime is two hours.
-- Claims are `sub` (user UUID), `email`, `role=customer`, `jti`, `iat`, and `exp`.
-- Passwords are 8-128 characters and must include an uppercase letter, lowercase letter, and digit. Never log or return them.
-- Login uses a generic `AUTH_INVALID_CREDENTIALS` response to avoid account enumeration.
-
-Public endpoints are health, Swagger in Development, registration/login, offers, and provider details. `/api/auth/me`, all bookings, and all favorites require a valid customer bearer token. A user can read/cancel only their own booking; the API returns `404 BOOKING_NOT_FOUND` for another user's ID.
-
-## 8. Data, time, money, and location conventions
-
-- Persist instants as PostgreSQL `timestamptz`; pass UTC `DateTimeOffset` values through application boundaries.
-- JSON timestamps are ISO 8601 UTC strings with `Z`, such as `2026-07-14T12:30:00Z`.
-- Budapest business-day defaults use the IANA zone `Europe/Budapest` and are converted to UTC after DST-aware calculation. The database/session timezone is UTC.
-- Prices are PostgreSQL `numeric(12,2)`, C# `decimal`, JSON numbers, and Android decimal-safe values. Never use floating point for money. Each money value includes an ISO code.
-- Coordinates use WGS84 decimal degrees. PostgreSQL stores `numeric(9,6)` latitude and longitude; MVP distance filtering uses the Haversine formula in a translatable SQL expression. Results expose kilometers rounded to one decimal. No PostGIS dependency is needed.
-- JSON property names are camelCase. Enum values are uppercase snake case. Missing optional data is `null`, not an empty sentinel.
-
-## 9. API composition and errors
-
-The exact endpoints, DTOs, filters, pagination, and examples are frozen in `API_CONTRACT.md`. Controllers/minimal endpoints may vary internally, but generated OpenAPI must describe that contract.
-
-All non-2xx API responses use `application/problem+json` and the same RFC 7807 extension fields (`code`, `traceId`, and optional field `errors`). Validation is performed at the API/application boundary; domain invariants are enforced again before persistence. Unhandled exceptions are logged with the trace ID and mapped to a generic problem without stack traces.
-
-List endpoints use stable, one-based offset pagination. Queries always add `id ASC` as a final deterministic tie-breaker. Maximum page size is 50.
-
-## 10. EF Core schema and migrations
-
-`UgorjBeDbContext` owns one schema and the tables `users`, `providers`, `offers`, `bookings`, `favorite_offers`, and `favorite_providers`. Required indexes include:
-
-- unique `users.normalized_email`;
 - `offers(status, starts_at_utc, booking_cutoff_utc)`;
-- `offers(provider_id, starts_at_utc)` and `offers(category, starts_at_utc)`;
-- `bookings(user_id, created_at_utc DESC)`;
-- unique `bookings.booking_code`;
-- both favorite composite primary keys and target foreign-key indexes.
+- `offers(status, latitude, starts_at_utc)` and `offers(status, longitude, starts_at_utc)` so PostgreSQL can bitmap-combine both bounded coordinate predicates;
+- existing provider/category/start indexes;
+- `providers(updated_at_utc, id)`;
+- `offers(updated_at_utc, id)`;
+- existing booking, email, code, and favorite indexes.
 
-Foreign keys restrict deletion of users/providers/offers referenced by bookings. Seeded entities are not deleted through the MVP API.
+No PostGIS dependency is required for Phase 2. The visible-area query first applies indexed rectangular latitude/longitude predicates in SQL. Optional radius/distance filtering uses the existing Haversine calculation after that bounded candidate set; it must not load a global catalog into memory.
 
-The initial migration is committed under `UgorjBe.Infrastructure/Persistence/Migrations`. On container startup the API applies committed migrations with bounded retries before seeding. Production auto-migration is not implied by this local MVP behavior.
+### Booking invariants during administration
 
-## 11. Deterministic local seed
+The existing `SELECT ... FOR UPDATE` booking/cancellation transaction is unchanged. Administrator mutations also enforce:
 
-Development/test seeding is idempotent and guarded by configuration (`SeedData__Enabled=true`). It uses fixed UUIDs and content for:
+- `totalCapacity >= reservedQuantity`;
+- reserved quantity is read-only;
+- with any confirmed booking, provider, offer location, start/end, cancellation cutoff, and currency cannot change;
+- price edits affect only later bookings because every booking keeps its price snapshot;
+- unpublish/archive does not release capacity;
+- cancellation still restores capacity exactly once even when the offer is unpublished or archived.
 
-- customer `demo@ugorjbe.local` / `UgorjBe123!`, display name `Demó Család`;
-- at least four Budapest providers across the chosen categories;
-- at least eight offers with varied age, time, distance, price, accessibility, and capacity;
-- one favorite offer/provider and representative previous bookings where useful.
+Updates use optimistic concurrency. Admin detail DTOs expose opaque `version` derived from PostgreSQL `xmin`. PUT and lifecycle requests require that version. A mismatch is `409 CONCURRENCY_CONFLICT`.
 
-On a fresh database, offer times are calculated from the current `Europe/Budapest` local date (future sessions today where possible, plus tomorrow fallback) so discovery remains useful. Entity identities and all non-temporal content remain fixed. Seed timestamps use the injected clock. Seeding must not reset capacity or bookings in an existing database.
+## 4. Public discovery and map query
 
-Demo credentials are intentionally public development fixtures, not a production secret. JWT keys and database passwords are provided by local environment variables. `.env.example` contains names/placeholders only.
+`GET /api/offers` remains the one-based paged list endpoint (default 20, maximum 50). It gains an optional all-or-none bounding box so server-paged list consumers can use the same geographic predicate.
 
-## 12. Local execution and observability
+`GET /api/offers/map` is the map-first endpoint. A bounding box is mandatory:
 
-Root `docker-compose.yml` defines:
+- `south < north` and `west < east`;
+- anti-meridian-crossing boxes are rejected in Phase 2;
+- latitude span is at most 2 degrees and longitude span at most 3 degrees;
+- south/west edges are inclusive; north/east edges are exclusive;
+- `limit` defaults to 100 and is 1–200.
 
-- `db`: PostgreSQL with a health check and named volume;
-- `api`: builds `backend/src/UgorjBe.Api/Dockerfile`, waits for healthy PostgreSQL, listens on host port `8080`, applies migrations, and seeds development data.
+The endpoint supports the complete public discovery filter set and deterministic sorting. The database query applies lifecycle, cutoff, start, capacity, time, text/category/age/price, and bounding predicates before projection. It reads `limit + 1` rows; at most `limit` are returned. The extra row sets `isTruncated=true` without an unbounded count query.
 
-The connection string points to service host `db`. Configuration is via normal ASP.NET environment variables. `/health` returns `200` only when the process is running and PostgreSQL is reachable, otherwise `503`.
+Map and list share the same application-level `DiscoverySpecification` so eligibility cannot drift. Android's Explore ViewModel stores one map envelope; Map and List render the exact loaded items and toggling views does not request data. The list reveals the bounded result in local chunks of 20. A truncated response is not paged beyond 200; both presentations ask the user to zoom or narrow filters. General non-map lists continue to use `GET /api/offers` pagination.
 
-Logs are structured console logs. Every request has an ASP.NET trace identifier returned in problem responses. Passwords, bearer tokens, connection-string passwords, and child data must never be logged.
+Camera behavior follows `UX_DIRECTION.md`:
 
-## 13. Test boundaries
+1. initial and filter/search requests use the visible bounds;
+2. movement keeps stale markers and does not continuously request;
+3. camera-idle thresholds only expose `Keresés ezen a területen`;
+4. the action sends the exact visible bounds and current filters;
+5. only the newest request generation may replace state;
+6. failed area search retains stale results and offers retry.
 
-Unit tests cover domain validation, booking/cancellation decisions with a fake `TimeProvider`, price totals, and Android ViewModel state transitions/error mapping.
+The API does not receive camera events or infer viewport changes. The Android client owns the searched-area baseline and request cancellation.
 
-PostgreSQL integration tests cover:
+## 5. Authentication, authorization, and browser session
 
-- registration, duplicate email, login, and current user;
-- default discovery and every material filter/sort rule;
-- expired/cutoff offer rejection;
-- quantity validation and insufficient capacity;
-- two competing reservations for final capacity;
-- cancellation before/after cutoff and capacity restoration;
-- booking ownership and active/previous projections;
-- idempotent favorite add/remove;
-- the common problem-details envelope.
+JWT signing, issuer validation, expiry, HMAC key length, password hashing, and generic login failure remain unchanged. Access tokens last two hours and contain `sub`, `email`, `role`, `jti`, `iat`, and `exp`. The existing configured audience is retained for compatibility; it identifies UgorjBe first-party clients even if its local configuration label predates the web client.
 
-Android tests use fake repositories/MockWebServer where useful to verify login and browse-detail-reserve-code, loading/empty/error/retry, token attachment, capacity conflict display, cancellation, and favorites. A debug build is part of the quality gate.
+Authorization rules:
 
-## 14. Frozen cross-client decisions
+- public: health, login/register, public offers/map, public offer/provider detail;
+- authenticated customer or admin: `/api/auth/me`;
+- customer-owned booking/favorite APIs: authenticated user and ownership checks;
+- `/api/admin/**`: authenticated plus `AdminOnly`;
+- absent/invalid/expired token: `401 AUTH_REQUIRED`;
+- valid token without the admin role: `403 AUTH_FORBIDDEN`.
 
-Neither implementer may independently change these items:
+The web SPA keeps its bearer token only in React in-memory auth state. It never writes the token to localStorage, sessionStorage, IndexedDB, URL, logs, or cookies. Page refresh/browser close requires login again. Logout clears the token and TanStack Query cache. A `401` clears the session and returns to login with a relative intended route; `403` shows an unauthorized screen and does not pretend the mutation succeeded. Client role checks control presentation only.
 
-1. Endpoint paths, JSON property names, enum spellings, pagination envelope, or problem `code` values in `API_CONTRACT.md`.
-2. UTC wire timestamps and Budapest-only default day calculation.
-3. `Money` as decimal amount plus ISO currency; no formatted price strings from the API.
-4. Persisted booking states and derived `COMPLETED` behavior.
-5. Cancellation boundary (`now <= cancelUntilUtc` and before start) and idempotent repeated cancellation.
-6. PostgreSQL row-lock transaction as the capacity authority.
-7. Public catalog/provider reads and bearer-protected me/bookings/favorites.
-8. Favorite endpoint idempotency.
-9. Emulator debug base URL and `/api` path ownership (base URL has no `/api`; Retrofit paths do).
-10. Booking QR payload format: `ugorjbe://booking/{bookingId}?code={bookingCode}`. It is a display/check-in payload, not an authentication credential.
+Registration cannot request or elevate a role. The development seed adds:
 
-Any proposed change must first amend the two architecture documents and add/adjust contract tests.
+- customer: `demo@ugorjbe.local` / `UgorjBe123!`;
+- administrator: `admin@ugorjbe.local` / `UgorjBeAdmin123!`.
+
+These are documented local fixtures, never production credentials.
+
+## 6. Administrator module
+
+The exact endpoints and DTOs are in `API_CONTRACT.md`. The module supplies:
+
+- dashboard counts and five next published offers;
+- provider list/detail/create/update;
+- offer list/detail/create/update;
+- publish, unpublish, and archive transitions.
+
+There are no delete endpoints. All collection queries are bounded, one-based, default 20, maximum 50, and end with ID ascending as a stable tie-breaker. Dashboard `nextOffers` is capped at five.
+
+Create produces a valid `DRAFT`. Publish performs readiness validation again with one injected UTC `now`. An archived offer is immutable. Invalid transitions do not mutate data. State mutations and capacity-sensitive updates use transactions, and all writes update `UpdatedAtUtc`.
+
+## 7. Time and Hungarian administrator input
+
+The database and wire contract remain UTC: PostgreSQL `timestamptz` and ISO-8601 strings ending in `Z`. The admin API rejects local or offset timestamps for offer write requests. The SPA displays and edits wall times in IANA zone `Europe/Budapest`.
+
+Web conversion uses a tested IANA-zone library such as Luxon:
+
+1. parse the exact `datetime-local` text as a Budapest wall time;
+2. round-trip it to the same local text; a mismatch is a nonexistent spring-forward time and blocks submit;
+3. inspect possible offsets; any count other than one is invalid/ambiguous and blocks submit rather than choosing silently;
+4. convert the one valid instant to UTC with `Z` and preview it before submit;
+5. convert API UTC values back through `Europe/Budapest` for edit/display.
+
+The form always labels the zone. Browser/system timezone is not used for business conversion. Backend validation still enforces ordering, future publish readiness, cutoffs, and UTC input.
+
+## 8. Android architecture and Maps key
+
+Android remains a single-activity Compose app with Hilt, Retrofit/OkHttp, coroutines/Flow, and a real backend repository. Phase 2 adds Google Maps Compose, the Maps utility Compose clustering library, adaptive navigation components, and location permission handling.
+
+One saved `ExploreViewModel` owns presentation, committed filters, searched/current bounds, result envelope, selection, camera baseline, request generation, permission state, and stale/error state. Map and List do not own separate filters or repositories. Approximate foreground location is optional; no background permission or raw location history is stored. Budapest `47.4979, 19.0402` at zoom 12 is the fallback.
+
+Use the Google Maps Secrets Gradle Plugin:
+
+- root `local.properties` or another gitignored local secrets file contains `MAPS_API_KEY=...`;
+- checked-in `secrets.defaults.properties` contains only `MAPS_API_KEY=DEFAULT_API_KEY` so CI compiles;
+- manifest metadata reads the generated placeholder;
+- no key is placed in Kotlin, resources, Gradle source, CI YAML, screenshots, or logs;
+- developers restrict the key to Android application ID and signing-certificate SHA-1, and enable only Maps SDK for Android.
+
+A missing/default key must render a recoverable Map-unavailable state and a real backend List action, not mock offers or a crash.
+
+## 9. Local URLs, CORS, and reverse proxy
+
+The frozen port topology resolves the previous documentation/Compose inconsistency:
+
+| Surface | Local URL | Purpose |
+| --- | --- | --- |
+| Admin Vite dev | `http://localhost:5173` | hot-reload SPA |
+| API host | `http://localhost:8081` | Swagger, API, health |
+| Compose admin web | `http://localhost:8080` | built SPA and same-origin proxy |
+| Android Emulator API | `http://10.0.2.2:8081` | host API from emulator |
+| PostgreSQL host | `localhost:5432` | local development only |
+
+The Vite development client calls `http://localhost:8081`. Development CORS permits exactly configurable `http://localhost:5173`, methods GET/POST/PUT/DELETE/OPTIONS, and headers Authorization/Content-Type. Credentials are disabled and wildcard origins are forbidden. Production/Compose does not require CORS: nginx serves the SPA and proxies `/api/*` and `/health` to the API container on port 8080.
+
+Android uses the API host port 8081 through `10.0.2.2`. The Retrofit base URL contains no `/api` segment.
+
+## 10. Docker and configuration
+
+Root Compose contains:
+
+- `db`: PostgreSQL 16, health check, named volume;
+- `api`: container port 8080, host 8081, migrations and development seed;
+- `admin-web`: nginx/static SPA, host 8080, depends on healthy API, proxies API/health.
+
+No secret is baked into an image. `.env.example` contains placeholders only. Vite runtime/compile configuration contains a non-secret API base setting; Compose builds for relative same-origin paths. Development seed is guarded by `SeedData__Enabled=true`. Production auto-migration, production seed, deployment, TLS termination, and secret management are outside this phase.
+
+## 11. CI
+
+GitHub Actions runs independent jobs:
+
+- backend: locked restore, Release build, format verification, unit tests, PostgreSQL integration tests;
+- Android: JDK 17, SDK install, unit/UI tests that do not need a billable map, optional configured lint, `assembleDebug` with default placeholder key;
+- web: `npm ci`, lint, typecheck, unit/component tests, production build, and browser smoke against real API/PostgreSQL;
+- Compose smoke: build/start all three services, wait for `http://localhost:8081/health`, verify `http://localhost:8080` and its proxied health, then tear down volumes.
+
+The browser smoke logs in as the seeded admin, creates a uniquely named provider/offer, publishes it, and confirms it through the public discovery API. It uses local development credentials and no external Google Maps service.
+
+## 12. Test and security gates
+
+Backend PostgreSQL integration tests cover:
+
+- map bound validation, shared filters, cap/truncation, geographic inclusion/exclusion;
+- unauthenticated admin `401` and customer `403` on every admin controller family;
+- admin provider/offer success and field errors;
+- lifecycle transitions and unpublished/archived booking rejection;
+- protected-field and capacity conflicts with existing bookings;
+- optimistic concurrency;
+- all original expiry, overbooking, cancellation, ownership, and favorite tests.
+
+Android tests cover shared Map/List state, filter synchronization, camera dirty thresholds, newest-request wins, selection, permission denial, map failure/list fallback, navigation, and original booking flows. Instrumented tests do not require a real API key.
+
+Web tests cover auth memory behavior, route guards, validation/error mapping, Budapest conversion including DST gap/overlap, responsive/accessible components, provider/offer forms, lifecycle confirmations, and a real browser smoke.
+
+Logs and analytics must redact bearer tokens, passwords, connection-string passwords, and Maps keys. Remote image URLs are treated as untrusted display input. Admin write URLs accept only HTTP/HTTPS and are never fetched server-side, preventing SSRF.
+
+## 13. Frozen cross-client decisions
+
+1. API host is 8081; Compose admin is 8080; Vite is 5173; emulator API is `10.0.2.2:8081`.
+2. Map discovery is `GET /api/offers/map` with required bounded bbox, maximum 200 items, and explicit truncation.
+3. Map and List use the same eligibility implementation and loaded Explore result set.
+4. Offer location is separate from provider address; existing data is backfilled.
+5. Admin states are `DRAFT`, `PUBLISHED`, `UNPUBLISHED`, and `ARCHIVED` with only the transitions above.
+6. Backend role authorization is authoritative; customer tokens receive `403 AUTH_FORBIDDEN`.
+7. Admin bearer tokens are memory-only; no refresh token or browser persistence.
+8. UTC remains the wire/storage format; web conversion is explicitly `Europe/Budapest` and blocks ambiguous/nonexistent local input.
+9. Existing row-lock booking/cancellation transactions, snapshots, idempotency, and ownership behavior are unchanged.
+10. Maps keys are local, gitignored, application-restricted, and replaceable by a harmless CI placeholder.
+11. Admin writes use opaque versions and reject lost updates.
+12. OpenAPI and tests must match `API_CONTRACT.md` before any independent client contract change.
