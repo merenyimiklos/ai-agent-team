@@ -25,6 +25,7 @@ backend/                   .NET 8 modular-monolith solution and tests
 android/                   Kotlin/Compose single-activity Android application
 docs/                      product decision, architecture, and API contract
 docker-compose.yml         local API and PostgreSQL stack
+.github/workflows/ci.yml   PostgreSQL-backed backend and Android CI gates
 .env.example               local configuration template without real secrets
 ```
 
@@ -54,7 +55,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-The API applies the committed migration and idempotent development seed when configured by Compose. Wait until the health endpoint reports healthy:
+The API applies the committed migration and idempotent development seed when configured by Compose. The seed keeps booking-linked history intact and appends a deterministic rolling batch when the previous demo schedule has expired, so a retained database volume remains useful. Wait until the health endpoint reports healthy:
 
 - API: `http://localhost:8080`
 - Health: `http://localhost:8080/health`
@@ -92,7 +93,7 @@ $env:UGORJBE_TEST_CONNECTION = 'Host=localhost;Port=5432;Database=ugorjbe_test;U
 dotnet test backend/tests/UgorjBe.IntegrationTests/UgorjBe.IntegrationTests.csproj --no-build
 ```
 
-Without `UGORJBE_TEST_CONNECTION`, only the database-independent API problem-contract tests run and the PostgreSQL cases report as skipped. The PostgreSQL cases cover authentication, expiry, competing reservations, cancellation, and favorites.
+Without `UGORJBE_TEST_CONNECTION`, only the database-independent API/OpenAPI contract tests run and the PostgreSQL cases report as skipped. The PostgreSQL suite covers authentication edge cases, expiry, quantity validation, competing reservations, exact capacity restoration, cancellation deadlines, customer ownership, active/previous booking scopes, offer/provider favorites, representative catalog filters/sorting, and rolling seed behavior. The same suite runs against a PostgreSQL 16 service in GitHub Actions.
 
 ## Build and run Android
 
@@ -100,7 +101,7 @@ Without `UGORJBE_TEST_CONNECTION`, only the database-independent API problem-con
 2. Open `android/` in Android Studio, let Gradle sync, and select the `app` debug configuration.
 3. Run on a standard Android Emulator.
 
-The debug app calls `http://10.0.2.2:8080/`, the emulator alias for the host loopback interface. Its local debug network configuration permits cleartext only for this development endpoint.
+The debug app calls `http://10.0.2.2:8080/`, the emulator alias for the host loopback interface. Its local debug network configuration permits cleartext only for this development endpoint. Discovery initially requests the next 24 hours, so the rolling evening seed remains visible, with narrower 3- and 6-hour filters available.
 
 Command-line checks from the repository root:
 

@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - "codex/**"
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: ugorjbe_test
+          POSTGRES_USER: ugorjbe_test
+          POSTGRES_PASSWORD: ugorjbe_test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ugorjbe_test -d ugorjbe_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      UGORJBE_TEST_CONNECTION: Host=localhost;Port=5432;Database=ugorjbe_test;Username=ugorjbe_test;Password=ugorjbe_test_password;Include Error Detail=true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Restore
+        run: dotnet restore UgorjBe.sln --locked-mode
+      - name: Build
+        run: dotnet build UgorjBe.sln -c Release --no-restore
+      - name: Verify formatting
+        run: dotnet format UgorjBe.sln --verify-no-changes --no-restore
+      - name: Unit tests
+        run: dotnet test tests/UgorjBe.UnitTests/UgorjBe.UnitTests.csproj -c Release --no-build
+      - name: PostgreSQL integration tests
+        run: dotnet test tests/UgorjBe.IntegrationTests/UgorjBe.IntegrationTests.csproj -c Release --no-build
+
+  android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK packages
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+      - name: Test and build debug APK
+        run: bash ./gradlew testDebugUnitTest assembleDebug --no-daemon
+
+  compose-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare development configuration
+        run: cp .env.example .env
+      - name: Build and start the stack
+        run: docker compose up --build --detach
+      - name: Verify API health
+        run: |
+          for attempt in {1..30}; do
+            if curl --fail --silent http://localhost:8080/health; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose logs
+          exit 1
+      - name: Stop the stack
+        if: always()
+        run: docker compose down --volumes
