@@ -29,4 +29,10 @@ public sealed class ApiProblemDetails
     public IReadOnlyDictionary<string, string[]>? Errors { get; init; }
 
     public int? AvailablePlaces { get; init; }
+
+    public string? Reason { get; init; }
+
+    public string? CurrentStatus { get; init; }
+
+    public IReadOnlyList<string>? ConflictingFields { get; init; }
 }

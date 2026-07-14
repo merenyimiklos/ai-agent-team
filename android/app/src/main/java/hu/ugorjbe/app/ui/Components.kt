@@ -131,17 +131,19 @@ fun OfferCard(offer: OfferSummary, onClick: () -> Unit, modifier: Modifier = Mod
     Card(
         modifier = modifier.fillMaxWidth().clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
         Column {
             Box(
-                Modifier.fillMaxWidth().height(92.dp).background(MaterialTheme.colorScheme.secondaryContainer),
+                Modifier.fillMaxWidth().height(112.dp).background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.CenterStart,
             ) {
                 Icon(
                     Icons.Outlined.CalendarMonth,
                     contentDescription = null,
                     modifier = Modifier.padding(start = 24.dp).size(42.dp),
-                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                    tint = MaterialTheme.colorScheme.primary,
                 )
                 Text(
                     text = stringResource(R.string.discount, offer.discountPercent),
@@ -178,7 +180,7 @@ fun OfferCard(offer: OfferSummary, onClick: () -> Unit, modifier: Modifier = Mod
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Outlined.LocationOn, null, Modifier.size(18.dp))
-                        Text(offer.provider.address.city, style = MaterialTheme.typography.bodySmall)
+                        Text("${offer.address.city}, ${offer.address.street}", style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }

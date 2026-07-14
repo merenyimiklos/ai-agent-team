@@ -8,6 +8,19 @@ interface AuthRepository {
 
 interface CatalogRepository {
     suspend fun offers(filter: OfferFilter): ApiResult<Page<OfferSummary>>
+    suspend fun mapOffers(bounds: MapBounds, filter: OfferFilter): ApiResult<MapOfferEnvelope> =
+        when (val result = offers(filter)) {
+            is ApiResult.Success -> ApiResult.Success(
+                MapOfferEnvelope(
+                    result.value.items,
+                    result.value.items.size,
+                    result.value.pageSize,
+                    false,
+                    bounds,
+                ),
+            )
+            is ApiResult.Failure -> result
+        }
     suspend fun offer(id: String): ApiResult<OfferDetail>
     suspend fun provider(id: String): ApiResult<ProviderDetail>
 }

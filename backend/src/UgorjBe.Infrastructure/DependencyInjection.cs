@@ -32,6 +32,7 @@ public static class DependencyInjection
         services.AddScoped<ICatalogService, CatalogService>();
         services.AddScoped<IBookingService, BookingService>();
         services.AddScoped<IFavoriteService, FavoriteService>();
+        services.AddScoped<IAdminService, AdminService>();
         services.AddScoped<DatabaseSeeder>();
 
         services.AddOptions<JwtOptions>()
@@ -79,10 +80,26 @@ public static class DependencyInjection
                             ["traceId"] = System.Diagnostics.Activity.Current?.Id ?? context.HttpContext.TraceIdentifier
                         };
                         await context.Response.WriteAsync(JsonSerializer.Serialize(payload, JsonOptions), context.HttpContext.RequestAborted);
+                    },
+                    OnForbidden = async context =>
+                    {
+                        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                        context.Response.ContentType = "application/problem+json";
+                        var payload = new Dictionary<string, object?>
+                        {
+                            ["type"] = "urn:ugorjbe:problem:auth-forbidden",
+                            ["title"] = "Nincs jogosultság a művelethez.",
+                            ["status"] = 403,
+                            ["detail"] = "Ehhez a művelethez adminisztrátori szerepkör szükséges.",
+                            ["instance"] = context.HttpContext.Request.Path.Value,
+                            ["code"] = "AUTH_FORBIDDEN",
+                            ["traceId"] = System.Diagnostics.Activity.Current?.Id ?? context.HttpContext.TraceIdentifier
+                        };
+                        await context.Response.WriteAsync(JsonSerializer.Serialize(payload, JsonOptions), context.HttpContext.RequestAborted);
                     }
                 };
             });
-        services.AddAuthorization();
+        services.AddAuthorization(options => options.AddPolicy("AdminOnly", policy => policy.RequireRole("admin")));
         return services;
     }
 

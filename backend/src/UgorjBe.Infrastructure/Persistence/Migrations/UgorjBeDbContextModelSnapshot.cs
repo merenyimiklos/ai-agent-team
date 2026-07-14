@@ -240,6 +240,10 @@ namespace UgorjBe.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("accompaniment_required");
 
+                    b.Property<DateTimeOffset?>("ArchivedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("archived_at_utc");
+
                     b.Property<DateTimeOffset>("BookingCutoffUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("booking_cutoff_utc");
@@ -253,6 +257,18 @@ namespace UgorjBe.Infrastructure.Persistence.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
                         .HasColumnName("category");
+
+                    b.Property<string>("City")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("city");
+
+                    b.Property<string>("CountryCode")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("country_code");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone")
@@ -284,6 +300,16 @@ namespace UgorjBe.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("image_url");
 
+                    b.Property<decimal>("Latitude")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("numeric(9,6)")
+                        .HasColumnName("latitude");
+
+                    b.Property<decimal>("Longitude")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("numeric(9,6)")
+                        .HasColumnName("longitude");
+
                     b.Property<int>("MaxChildAge")
                         .HasColumnType("integer")
                         .HasColumnName("max_child_age");
@@ -297,9 +323,19 @@ namespace UgorjBe.Infrastructure.Persistence.Migrations
                         .HasColumnType("numeric(12,2)")
                         .HasColumnName("original_unit_price");
 
+                    b.Property<string>("PostalCode")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("postal_code");
+
                     b.Property<Guid>("ProviderId")
                         .HasColumnType("uuid")
                         .HasColumnName("provider_id");
+
+                    b.Property<DateTimeOffset?>("PublishedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("published_at_utc");
 
                     b.Property<int>("ReservedQuantity")
                         .HasColumnType("integer")
@@ -315,6 +351,12 @@ namespace UgorjBe.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(16)")
                         .HasColumnName("status");
 
+                    b.Property<string>("Street")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("street");
+
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(160)
@@ -329,6 +371,12 @@ namespace UgorjBe.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at_utc");
 
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.HasKey("Id")
                         .HasName("pk_offers");
 
@@ -337,6 +385,15 @@ namespace UgorjBe.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ProviderId", "StartsAtUtc")
                         .HasDatabaseName("ix_offers_provider_id_starts_at_utc");
+
+                    b.HasIndex("UpdatedAtUtc", "Id")
+                        .HasDatabaseName("ix_offers_updated_at_utc_id");
+
+                    b.HasIndex("Status", "Latitude", "StartsAtUtc")
+                        .HasDatabaseName("ix_offers_status_latitude_starts_at_utc");
+
+                    b.HasIndex("Status", "Longitude", "StartsAtUtc")
+                        .HasDatabaseName("ix_offers_status_longitude_starts_at_utc");
 
                     b.HasIndex("Status", "StartsAtUtc", "BookingCutoffUtc")
                         .HasDatabaseName("ix_offers_status_starts_at_utc_booking_cutoff_utc");
@@ -440,6 +497,12 @@ namespace UgorjBe.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at_utc");
 
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.Property<string>("WebsiteUrl")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
@@ -447,6 +510,9 @@ namespace UgorjBe.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_providers");
+
+                    b.HasIndex("UpdatedAtUtc", "Id")
+                        .HasDatabaseName("ix_providers_updated_at_utc_id");
 
                     b.ToTable("providers", (string)null);
                 });

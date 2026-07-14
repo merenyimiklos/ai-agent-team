@@ -42,9 +42,14 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
@@ -53,6 +58,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hu.ugorjbe.app.R
 import hu.ugorjbe.app.domain.Booking
 import hu.ugorjbe.app.domain.OfferDetail
+import hu.ugorjbe.app.domain.Money
 import hu.ugorjbe.app.ui.viewmodel.OfferDetailViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -64,6 +70,7 @@ fun OfferDetailScreen(
     onBookings: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    var reservationVisible by remember { mutableStateOf(false) }
     state.booking?.let { booking ->
         BookingSuccessScreen(
             booking = booking,
@@ -102,7 +109,7 @@ fun OfferDetailScreen(
                 quantity = state.quantity,
                 reserving = state.reserving,
                 onQuantity = viewModel::setQuantity,
-                onReserve = viewModel::reserve,
+                onReserve = { reservationVisible = true },
                 onProvider = { onProvider(state.offer!!.provider.id) },
                 modifier = Modifier.padding(padding),
             )
@@ -114,6 +121,32 @@ fun OfferDetailScreen(
             title = { Text(stringResource(R.string.app_name)) },
             text = { Text(errorText(error)) },
             confirmButton = { TextButton(onClick = viewModel::dismissMessage) { Text(stringResource(R.string.close)) } },
+        )
+    }
+    if (reservationVisible && state.offer != null) {
+        val offer = state.offer!!
+        val total = Money(offer.discountedUnitPrice.amount.multiply(state.quantity.toBigDecimal()), offer.discountedUnitPrice.currency)
+        AlertDialog(
+            onDismissRequest = { reservationVisible = false },
+            title = { Text(stringResource(R.string.reservation_review)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(offer.title, style = MaterialTheme.typography.titleMedium)
+                    Text("${stringResource(R.string.quantity)} ${state.quantity}")
+                    Text("${stringResource(R.string.total_price)} ${formatMoney(total)}", fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.pay_on_arrival))
+                    Text("${stringResource(R.string.cancellation_deadline)} ${formatDateTime(offer.cancelUntilUtc)}")
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        reservationVisible = false
+                        viewModel.reserve()
+                    },
+                ) { Text(stringResource(R.string.confirm_reservation)) }
+            },
+            dismissButton = { TextButton(onClick = { reservationVisible = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 }
@@ -150,7 +183,7 @@ private fun OfferDetailContent(
                     Column(Modifier.weight(1f)) {
                         Text(stringResource(R.string.provider), style = MaterialTheme.typography.labelMedium)
                         Text(offer.provider.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        Text("${offer.provider.address.postalCode} ${offer.provider.address.city}, ${offer.provider.address.street}")
+                        Text("${offer.address.postalCode} ${offer.address.city}, ${offer.address.street}")
                     }
                     Icon(Icons.Outlined.ChevronRight, stringResource(R.string.view_provider))
                 }
@@ -199,6 +232,7 @@ private fun InfoRow(icon: androidx.compose.ui.graphics.vector.ImageVector, text:
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun BookingSuccessScreen(booking: Booking, onBookings: () -> Unit, onBack: () -> Unit) {
+    val clipboard = LocalClipboardManager.current
     Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.booking_success)) }) }) { padding ->
         Column(
             Modifier.fillMaxSize().padding(padding).padding(24.dp).verticalScroll(rememberScrollState()),
@@ -215,6 +249,9 @@ private fun BookingSuccessScreen(booking: Booking, onBookings: () -> Unit, onBac
             Text(stringResource(R.string.booking_code), style = MaterialTheme.typography.labelLarge)
             Text(booking.bookingCode, style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
             Text(stringResource(R.string.show_at_arrival), textAlign = TextAlign.Center)
+            TextButton(onClick = { clipboard.setText(AnnotatedString(booking.bookingCode)) }) {
+                Text(stringResource(R.string.copy_booking_code))
+            }
             Spacer(Modifier.height(20.dp))
             Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
                 Column(Modifier.padding(16.dp)) {

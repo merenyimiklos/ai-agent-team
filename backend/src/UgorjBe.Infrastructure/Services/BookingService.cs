@@ -17,7 +17,7 @@ public sealed class BookingService(UgorjBeDbContext dbContext, TimeProvider time
 
         await using var transaction = await dbContext.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, cancellationToken);
         var offer = await dbContext.Offers
-            .FromSqlInterpolated($"SELECT * FROM offers WHERE id = {request.OfferId} FOR UPDATE")
+            .FromSqlInterpolated($"SELECT o.*, o.xmin FROM offers AS o WHERE o.id = {request.OfferId} FOR UPDATE")
             .Include(x => x.Provider)
             .SingleOrDefaultAsync(cancellationToken)
             ?? throw AppErrors.NotFound("offer");
@@ -26,11 +26,17 @@ public sealed class BookingService(UgorjBeDbContext dbContext, TimeProvider time
         var decision = BookingRules.CanReserve(offer, request.Quantity, now);
         if (decision == BookingRejection.NOT_BOOKABLE)
         {
+            var reason = offer.Status != OfferStatus.PUBLISHED
+                ? offer.Status.ToString()
+                : now >= offer.StartsAtUtc
+                    ? "STARTED"
+                    : "BOOKING_CLOSED";
             throw new AppException(
                 409,
                 "OFFER_NOT_BOOKABLE",
                 "Az ajánlat már nem foglalható.",
-                "A program elkezdődött, a foglalási határidő lejárt, vagy az ajánlatot visszavonták.");
+                "A program elkezdődött, a foglalási határidő lejárt, vagy az ajánlat nem publikus.",
+                new Dictionary<string, object?> { ["reason"] = reason });
         }
 
         if (decision == BookingRejection.INSUFFICIENT_CAPACITY)
@@ -65,12 +71,12 @@ public sealed class BookingService(UgorjBeDbContext dbContext, TimeProvider time
             StartsAtUtc = offer.StartsAtUtc,
             EndsAtUtc = offer.EndsAtUtc,
             CancellationDeadlineUtc = offer.CancelUntilUtc,
-            PostalCode = offer.Provider.PostalCode,
-            City = offer.Provider.City,
-            Street = offer.Provider.Street,
-            CountryCode = offer.Provider.CountryCode,
-            Latitude = offer.Provider.Latitude,
-            Longitude = offer.Provider.Longitude,
+            PostalCode = offer.PostalCode,
+            City = offer.City,
+            Street = offer.Street,
+            CountryCode = offer.CountryCode,
+            Latitude = offer.Latitude,
+            Longitude = offer.Longitude,
             ImageUrl = offer.ImageUrl,
             BookingCode = bookingCode,
             QrPayload = $"ugorjbe://booking/{bookingId}?code={bookingCode}",
@@ -141,7 +147,7 @@ public sealed class BookingService(UgorjBeDbContext dbContext, TimeProvider time
         }
 
         var offer = await dbContext.Offers
-            .FromSqlInterpolated($"SELECT * FROM offers WHERE id = {booking.OfferId} FOR UPDATE")
+            .FromSqlInterpolated($"SELECT o.*, o.xmin FROM offers AS o WHERE o.id = {booking.OfferId} FOR UPDATE")
             .SingleAsync(cancellationToken);
         if (offer.ReservedQuantity < booking.Quantity)
         {

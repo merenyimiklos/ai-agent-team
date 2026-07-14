@@ -19,6 +19,7 @@ data class User(
     val displayName: String,
     val locale: String,
     val createdAtUtc: String,
+    val role: String = "customer",
 )
 
 data class ProviderSummary(
@@ -58,6 +59,7 @@ data class OfferSummary(
     val availablePlaces: Int,
     val distanceKm: BigDecimal?,
     val imageUrl: String?,
+    val address: Address = provider.address,
 )
 
 data class OfferDetail(
@@ -84,6 +86,37 @@ data class OfferDetail(
     val paymentMethod: String,
     val distanceKm: BigDecimal?,
     val imageUrl: String?,
+    val address: Address = provider.address,
+)
+
+data class MapBounds(
+    val south: Double,
+    val west: Double,
+    val north: Double,
+    val east: Double,
+) {
+    val latitudeSpan: Double get() = north - south
+    val longitudeSpan: Double get() = east - west
+    val centerLatitude: Double get() = (south + north) / 2.0
+    val centerLongitude: Double get() = (west + east) / 2.0
+
+    fun isApiValid(): Boolean = south in -90.0..90.0 && north in -90.0..90.0 &&
+        west in -180.0..180.0 && east in -180.0..180.0 && south < north && west < east &&
+        latitudeSpan <= 2.0 && longitudeSpan <= 3.0
+
+    companion object {
+        val Budapest = MapBounds(47.4200, 18.9200, 47.5900, 19.1800)
+    }
+}
+
+data class MapViewport(val bounds: MapBounds, val zoom: Float)
+
+data class MapOfferEnvelope(
+    val items: List<OfferSummary>,
+    val returnedCount: Int,
+    val limit: Int,
+    val isTruncated: Boolean,
+    val bounds: MapBounds,
 )
 
 data class BookingOffer(

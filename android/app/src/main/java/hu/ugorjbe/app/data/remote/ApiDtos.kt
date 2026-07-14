@@ -5,6 +5,8 @@ import hu.ugorjbe.app.domain.Address
 import hu.ugorjbe.app.domain.Booking
 import hu.ugorjbe.app.domain.BookingOffer
 import hu.ugorjbe.app.domain.Money
+import hu.ugorjbe.app.domain.MapBounds
+import hu.ugorjbe.app.domain.MapOfferEnvelope
 import hu.ugorjbe.app.domain.OfferDetail
 import hu.ugorjbe.app.domain.OfferSummary
 import hu.ugorjbe.app.domain.Page
@@ -37,8 +39,9 @@ data class UserDto(
     val displayName: String,
     val locale: String,
     val createdAtUtc: String,
+    val role: String = "customer",
 ) {
-    fun toDomain() = User(id, email, displayName, locale, createdAtUtc)
+    fun toDomain() = User(id, email, displayName, locale, createdAtUtc, role)
 }
 
 @JsonClass(generateAdapter = false)
@@ -96,11 +99,12 @@ data class OfferSummaryDto(
     val availablePlaces: Int,
     val distanceKm: BigDecimal?,
     val imageUrl: String?,
+    val address: AddressDto,
 ) {
     fun toDomain() = OfferSummary(
         id, provider.toDomain(), title, category, startsAtUtc, endsAtUtc, minChildAge,
         maxChildAge, originalUnitPrice.toDomain(), discountedUnitPrice.toDomain(),
-        discountPercent, availablePlaces, distanceKm, imageUrl,
+        discountPercent, availablePlaces, distanceKm, imageUrl, address.toDomain(),
     )
 }
 
@@ -129,13 +133,37 @@ data class OfferDetailDto(
     val paymentMethod: String,
     val distanceKm: BigDecimal?,
     val imageUrl: String?,
+    val address: AddressDto,
 ) {
     fun toDomain() = OfferDetail(
         id, provider.toDomain(), title, description, category, startsAtUtc, endsAtUtc,
         bookingCutoffUtc, cancelUntilUtc, minChildAge, maxChildAge, accompanimentRequired,
         accessibilityInfo, originalUnitPrice.toDomain(), discountedUnitPrice.toDomain(),
         discountPercent, totalCapacity, availablePlaces, isBookable, unavailableReason,
-        paymentMethod, distanceKm, imageUrl,
+        paymentMethod, distanceKm, imageUrl, address.toDomain(),
+    )
+}
+
+@JsonClass(generateAdapter = false)
+data class MapBoundsDto(
+    val south: Double,
+    val west: Double,
+    val north: Double,
+    val east: Double,
+) {
+    fun toDomain() = MapBounds(south, west, north, east)
+}
+
+@JsonClass(generateAdapter = false)
+data class MapOfferEnvelopeDto(
+    val items: List<OfferSummaryDto>,
+    val returnedCount: Int,
+    val limit: Int,
+    val isTruncated: Boolean,
+    val bounds: MapBoundsDto,
+) {
+    fun toDomain() = MapOfferEnvelope(
+        items.map { it.toDomain() }, returnedCount, limit, isTruncated, bounds.toDomain(),
     )
 }
 

@@ -15,6 +15,8 @@ import hu.ugorjbe.app.domain.FavoritesRepository
 import hu.ugorjbe.app.domain.OfferDetail
 import hu.ugorjbe.app.domain.OfferFilter
 import hu.ugorjbe.app.domain.OfferSummary
+import hu.ugorjbe.app.domain.MapBounds
+import hu.ugorjbe.app.domain.MapViewport
 import hu.ugorjbe.app.domain.ProviderDetail
 import hu.ugorjbe.app.domain.ProviderSummary
 import hu.ugorjbe.app.domain.Session
@@ -92,42 +94,188 @@ class AuthViewModel @Inject constructor(private val repository: AuthRepository) 
     }
 }
 
-data class DiscoveryUiState(
+enum class ExplorePresentation { MAP, LIST }
+
+enum class LocationPermissionState { NOT_REQUESTED, RATIONALE, GRANTED, DENIED, PERMANENTLY_DENIED }
+
+data class ExploreUiState(
+    val presentation: ExplorePresentation = ExplorePresentation.MAP,
     val loading: Boolean = true,
+    val refreshing: Boolean = false,
     val offers: List<OfferSummary> = emptyList(),
     val filter: OfferFilter = OfferFilter(),
+    val filterDraft: OfferFilter? = null,
+    val searchedViewport: MapViewport = MapViewport(MapBounds.Budapest, 12f),
+    val currentViewport: MapViewport = searchedViewport,
+    val selectedOfferId: String? = null,
+    val isTruncated: Boolean = false,
+    val searchThisAreaVisible: Boolean = false,
+    val areaTooLarge: Boolean = false,
+    val stale: Boolean = false,
     val error: ApiError? = null,
-)
+    val locationPermission: LocationPermissionState = LocationPermissionState.NOT_REQUESTED,
+    val ignoreNextCameraIdle: Boolean = true,
+    val requestGeneration: Long = 0,
+) {
+    val selectedOffer: OfferSummary? get() = offers.firstOrNull { it.id == selectedOfferId }
+}
 
-@HiltViewModel
-class DiscoveryViewModel @Inject constructor(private val repository: CatalogRepository) : ViewModel() {
-    val state = MutableStateFlow(DiscoveryUiState())
-    private var loadJob: Job? = null
-
-    init { refresh() }
-
-    fun setQuery(value: String) = state.update { it.copy(filter = it.filter.copy(query = value)) }
-    fun applyFilter(filter: OfferFilter) {
-        state.update { it.copy(filter = filter) }
-        refresh()
+object MapSearchPolicy {
+    fun shouldOfferSearch(searched: MapViewport, visible: MapViewport): Boolean {
+        val movedHorizontally = kotlin.math.abs(searched.bounds.centerLongitude - visible.bounds.centerLongitude) >=
+            visible.bounds.longitudeSpan * 0.15
+        val movedVertically = kotlin.math.abs(searched.bounds.centerLatitude - visible.bounds.centerLatitude) >=
+            visible.bounds.latitudeSpan * 0.15
+        val zoomChanged = kotlin.math.abs(searched.zoom - visible.zoom) >= 0.5f
+        return movedHorizontally || movedVertically || zoomChanged || intersectionOverUnion(
+            searched.bounds,
+            visible.bounds,
+        ) < 0.8
     }
 
-    fun refresh() {
+    fun intersectionOverUnion(first: MapBounds, second: MapBounds): Double {
+        val intersectionWidth = (minOf(first.east, second.east) - maxOf(first.west, second.west)).coerceAtLeast(0.0)
+        val intersectionHeight = (minOf(first.north, second.north) - maxOf(first.south, second.south)).coerceAtLeast(0.0)
+        val intersection = intersectionWidth * intersectionHeight
+        val firstArea = first.longitudeSpan * first.latitudeSpan
+        val secondArea = second.longitudeSpan * second.latitudeSpan
+        val union = firstArea + secondArea - intersection
+        return if (union <= 0.0) 0.0 else intersection / union
+    }
+}
+
+@HiltViewModel
+class ExploreViewModel @Inject constructor(
+    private val repository: CatalogRepository,
+    private val savedStateHandle: SavedStateHandle = SavedStateHandle(),
+) : ViewModel() {
+    val state = MutableStateFlow(
+        ExploreUiState(
+            presentation = runCatching {
+                ExplorePresentation.valueOf(savedStateHandle["explorePresentation"] ?: "MAP")
+            }.getOrDefault(ExplorePresentation.MAP),
+            filter = OfferFilter(query = savedStateHandle["exploreQuery"] ?: ""),
+        ),
+    )
+    private var loadJob: Job? = null
+
+    init { search(state.value.searchedViewport) }
+
+    fun setQuery(value: String) = state.update { it.copy(filter = it.filter.copy(query = value)) }
+
+    fun submitQuery() {
+        savedStateHandle["exploreQuery"] = state.value.filter.query
+        search(state.value.currentViewport)
+    }
+
+    fun openFilters() = state.update { it.copy(filterDraft = it.filter) }
+    fun updateFilterDraft(filter: OfferFilter) = state.update { it.copy(filterDraft = filter) }
+    fun dismissFilters() = state.update { it.copy(filterDraft = null) }
+
+    fun applyFilter(filter: OfferFilter) {
+        state.update { it.copy(filter = filter, filterDraft = null) }
+        savedStateHandle["exploreQuery"] = filter.query
+        search(state.value.currentViewport)
+    }
+
+    fun setPresentation(presentation: ExplorePresentation) {
+        state.update { it.copy(presentation = presentation) }
+        savedStateHandle["explorePresentation"] = presentation.name
+    }
+
+    fun selectOffer(id: String?) = state.update { current ->
+        current.copy(selectedOfferId = id?.takeIf { selected -> current.offers.any { it.id == selected } })
+    }
+
+    fun onProgrammaticCameraMove() = state.update { it.copy(ignoreNextCameraIdle = true) }
+
+    fun onCameraIdle(viewport: MapViewport) = state.update { current ->
+        if (current.ignoreNextCameraIdle) {
+            current.copy(currentViewport = viewport, ignoreNextCameraIdle = false, searchThisAreaVisible = false)
+        } else {
+            current.copy(
+                currentViewport = viewport,
+                areaTooLarge = !viewport.bounds.isApiValid(),
+                searchThisAreaVisible = MapSearchPolicy.shouldOfferSearch(current.searchedViewport, viewport),
+            )
+        }
+    }
+
+    fun searchThisArea() {
+        if (state.value.currentViewport.bounds.isApiValid()) search(state.value.currentViewport)
+    }
+
+    fun refresh() = search(state.value.searchedViewport)
+    fun retry() = search(state.value.currentViewport)
+
+    fun requestLocation() = state.update { current ->
+        if (current.locationPermission != LocationPermissionState.GRANTED) {
+            current.copy(locationPermission = LocationPermissionState.RATIONALE)
+        } else current
+    }
+
+    fun dismissLocationRationale() = state.update { it.copy(locationPermission = LocationPermissionState.DENIED) }
+
+    fun onLocationPermissionResult(granted: Boolean, permanentlyDenied: Boolean = false) = state.update {
+        it.copy(
+            locationPermission = when {
+                granted -> LocationPermissionState.GRANTED
+                permanentlyDenied -> LocationPermissionState.PERMANENTLY_DENIED
+                else -> LocationPermissionState.DENIED
+            },
+        )
+    }
+
+    private fun search(viewport: MapViewport) {
+        if (!viewport.bounds.isApiValid()) {
+            state.update { it.copy(areaTooLarge = true, searchThisAreaVisible = true) }
+            return
+        }
         val requestedFilter = state.value.filter
+        val generation = state.value.requestGeneration + 1
         loadJob?.cancel()
+        state.update {
+            it.copy(
+                loading = it.offers.isEmpty(),
+                refreshing = it.offers.isNotEmpty(),
+                error = null,
+                areaTooLarge = false,
+                requestGeneration = generation,
+            )
+        }
         loadJob = viewModelScope.launch {
-            state.update { it.copy(loading = true, error = null) }
-            val result = repository.offers(requestedFilter)
-            if (state.value.filter != requestedFilter) return@launch
+            val result = repository.mapOffers(viewport.bounds, requestedFilter)
+            if (state.value.requestGeneration != generation || state.value.filter != requestedFilter) return@launch
             when (result) {
-            is ApiResult.Success -> state.update {
-                it.copy(loading = false, offers = result.value.items, error = null)
-            }
-            is ApiResult.Failure -> state.update { it.copy(loading = false, error = result.error) }
+                is ApiResult.Success -> state.update { current ->
+                    val items = result.value.items
+                    current.copy(
+                        loading = false,
+                        refreshing = false,
+                        offers = items,
+                        searchedViewport = viewport,
+                        currentViewport = viewport,
+                        selectedOfferId = current.selectedOfferId?.takeIf { id -> items.any { it.id == id } },
+                        isTruncated = result.value.isTruncated,
+                        searchThisAreaVisible = false,
+                        stale = false,
+                        error = null,
+                    )
+                }
+                is ApiResult.Failure -> state.update {
+                    it.copy(
+                        loading = false,
+                        refreshing = false,
+                        stale = it.offers.isNotEmpty(),
+                        error = result.error,
+                    )
+                }
             }
         }
     }
 }
+
+typealias DiscoveryViewModel = ExploreViewModel
 
 data class OfferDetailUiState(
     val loading: Boolean = true,

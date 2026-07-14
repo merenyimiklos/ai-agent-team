@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.background
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -25,11 +27,15 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Surface
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -53,7 +59,7 @@ import hu.ugorjbe.app.ui.viewmodel.ProviderViewModel
 fun BookingsScreen(viewModel: BookingsViewModel) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var cancelTarget by remember { mutableStateOf<String?>(null) }
-    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Text(stringResource(R.string.bookings), Modifier.padding(20.dp), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         TabRow(selectedTabIndex = if (state.scope == "ACTIVE") 0 else 1) {
             Tab(selected = state.scope == "ACTIVE", onClick = { viewModel.setScope("ACTIVE") }, text = { Text(stringResource(R.string.active)) })
@@ -104,7 +110,7 @@ fun BookingsScreen(viewModel: BookingsViewModel) {
 
 @Composable
 private fun BookingCard(booking: Booking, cancelling: Boolean, onCancel: () -> Unit) {
-    Card(Modifier.fillMaxWidth()) {
+    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(booking.offer.title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -130,7 +136,7 @@ private fun BookingCard(booking: Booking, cancelling: Boolean, onCancel: () -> U
 fun FavoritesScreen(viewModel: FavoritesViewModel, onOffer: (String) -> Unit, onProvider: (String) -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var tab by remember { mutableStateOf(0) }
-    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Text(stringResource(R.string.favorites), Modifier.padding(20.dp), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         TabRow(selectedTabIndex = tab) {
             Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text(stringResource(R.string.favorite_offers)) })
@@ -158,7 +164,7 @@ private fun EmptyText(text: Int) = Box(Modifier.fillMaxSize().padding(32.dp), co
 
 @Composable
 private fun ProviderCard(provider: ProviderSummary, onClick: () -> Unit) {
-    Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
+    Card(onClick = onClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
         Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Outlined.Business, null)
             Column(Modifier.weight(1f)) {
@@ -200,6 +206,13 @@ fun ProviderScreen(viewModel: ProviderViewModel, onBack: () -> Unit) {
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
+                    item {
+                        Surface(
+                            modifier = Modifier.size(72.dp),
+                            shape = RoundedCornerShape(24.dp),
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                        ) { Icon(Icons.Outlined.Business, null, Modifier.padding(18.dp), tint = MaterialTheme.colorScheme.secondary) }
+                    }
                     item { Text(provider.name, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold) }
                     item { Text(provider.shortDescription, color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.titleMedium) }
                     item { Text(provider.description, style = MaterialTheme.typography.bodyLarge) }
@@ -226,13 +239,29 @@ fun ProviderScreen(viewModel: ProviderViewModel, onBack: () -> Unit) {
 
 @Composable
 fun ProfileScreen(displayName: String, email: String, onLogout: () -> Unit) {
-    Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    val initials = displayName.split(' ').filter { it.isNotBlank() }.take(2).joinToString("") { it.first().uppercase() }
+    Column(
+        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
         Text(stringResource(R.string.profile), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        Surface(Modifier.size(80.dp), shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(initials, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
+            }
+        }
         Text(stringResource(R.string.signed_in_as), style = MaterialTheme.typography.labelLarge)
         Text(displayName, style = MaterialTheme.typography.titleLarge)
         Text(email)
+        Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
+            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.profile_preferences), style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.profile_locale))
+                Text(stringResource(R.string.profile_location_note), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
         Text(stringResource(R.string.local_backend), style = MaterialTheme.typography.bodySmall)
-        Button(onClick = onLogout) {
+        OutlinedButton(onClick = onLogout) {
             Icon(Icons.Outlined.Logout, null)
             Text(stringResource(R.string.logout), Modifier.padding(start = 8.dp))
         }

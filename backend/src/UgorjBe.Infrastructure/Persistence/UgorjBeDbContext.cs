@@ -45,6 +45,8 @@ public sealed class UgorjBeDbContext(DbContextOptions<UgorjBeDbContext> options)
             entity.Property(x => x.WebsiteUrl).HasMaxLength(500);
             entity.Property(x => x.AccessibilityInfo).HasMaxLength(500);
             entity.Property(x => x.ImageUrl).HasMaxLength(1000);
+            entity.Property(x => x.Version).HasColumnName("xmin").HasColumnType("xid").IsRowVersion();
+            entity.HasIndex(x => new { x.UpdatedAtUtc, x.Id });
         });
 
         modelBuilder.Entity<Offer>(entity =>
@@ -62,15 +64,25 @@ public sealed class UgorjBeDbContext(DbContextOptions<UgorjBeDbContext> options)
             entity.Property(x => x.Description).HasMaxLength(3000).IsRequired();
             entity.Property(x => x.Category).HasConversion<string>().HasMaxLength(32);
             entity.Property(x => x.Status).HasConversion<string>().HasMaxLength(16);
+            entity.Property(x => x.PostalCode).HasMaxLength(16).IsRequired();
+            entity.Property(x => x.City).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.Street).HasMaxLength(200).IsRequired();
+            entity.Property(x => x.CountryCode).HasMaxLength(2).IsRequired();
+            entity.Property(x => x.Latitude).HasPrecision(9, 6);
+            entity.Property(x => x.Longitude).HasPrecision(9, 6);
             entity.Property(x => x.AccessibilityInfo).HasMaxLength(500);
             entity.Property(x => x.ImageUrl).HasMaxLength(1000);
             entity.Property(x => x.OriginalUnitPrice).HasPrecision(12, 2);
             entity.Property(x => x.DiscountedUnitPrice).HasPrecision(12, 2);
             entity.Property(x => x.Currency).HasMaxLength(3).IsRequired();
+            entity.Property(x => x.Version).HasColumnName("xmin").HasColumnType("xid").IsRowVersion();
             entity.Ignore(x => x.AvailablePlaces);
             entity.HasIndex(x => new { x.Status, x.StartsAtUtc, x.BookingCutoffUtc });
             entity.HasIndex(x => new { x.ProviderId, x.StartsAtUtc });
             entity.HasIndex(x => new { x.Category, x.StartsAtUtc });
+            entity.HasIndex(x => new { x.Status, x.Latitude, x.StartsAtUtc });
+            entity.HasIndex(x => new { x.Status, x.Longitude, x.StartsAtUtc });
+            entity.HasIndex(x => new { x.UpdatedAtUtc, x.Id });
         });
 
         modelBuilder.Entity<Booking>(entity =>

@@ -10,8 +10,25 @@ public interface IAuthService
 public interface ICatalogService
 {
     Task<PageDto<OfferSummaryDto>> GetOffersAsync(OfferQuery query, CancellationToken cancellationToken);
+    Task<MapOfferEnvelope> GetMapOffersAsync(MapOfferQuery query, CancellationToken cancellationToken);
     Task<OfferDetailDto> GetOfferAsync(Guid offerId, CoordinateQuery query, CancellationToken cancellationToken);
     Task<ProviderDetailDto> GetProviderAsync(Guid providerId, CancellationToken cancellationToken);
+}
+
+public interface IAdminService
+{
+    Task<AdminDashboardDto> GetDashboardAsync(CancellationToken cancellationToken);
+    Task<PageDto<AdminProviderSummaryDto>> GetProvidersAsync(AdminProviderQuery query, CancellationToken cancellationToken);
+    Task<AdminProviderDetailDto> GetProviderAsync(Guid id, CancellationToken cancellationToken);
+    Task<AdminProviderDetailDto> CreateProviderAsync(ProviderCreateRequest request, CancellationToken cancellationToken);
+    Task<AdminProviderDetailDto> UpdateProviderAsync(Guid id, ProviderUpdateRequest request, CancellationToken cancellationToken);
+    Task<PageDto<AdminOfferSummaryDto>> GetOffersAsync(AdminOfferQuery query, CancellationToken cancellationToken);
+    Task<AdminOfferDetailDto> GetOfferAsync(Guid id, CancellationToken cancellationToken);
+    Task<AdminOfferDetailDto> CreateOfferAsync(OfferWriteRequest request, CancellationToken cancellationToken);
+    Task<AdminOfferDetailDto> UpdateOfferAsync(Guid id, OfferUpdateRequest request, CancellationToken cancellationToken);
+    Task<AdminOfferDetailDto> PublishAsync(Guid id, LifecycleRequest request, CancellationToken cancellationToken);
+    Task<AdminOfferDetailDto> UnpublishAsync(Guid id, LifecycleRequest request, CancellationToken cancellationToken);
+    Task<AdminOfferDetailDto> ArchiveAsync(Guid id, LifecycleRequest request, CancellationToken cancellationToken);
 }
 
 public interface IBookingService

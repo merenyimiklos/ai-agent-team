@@ -32,6 +32,7 @@ public sealed class Provider
     public string? ImageUrl { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
+    public uint Version { get; set; }
     public List<Offer> Offers { get; set; } = [];
 }
 
@@ -43,6 +44,12 @@ public sealed class Offer
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public OfferCategory Category { get; set; }
+    public string PostalCode { get; set; } = string.Empty;
+    public string City { get; set; } = string.Empty;
+    public string Street { get; set; } = string.Empty;
+    public string CountryCode { get; set; } = "HU";
+    public decimal Latitude { get; set; }
+    public decimal Longitude { get; set; }
     public DateTimeOffset StartsAtUtc { get; set; }
     public DateTimeOffset EndsAtUtc { get; set; }
     public DateTimeOffset BookingCutoffUtc { get; set; }
@@ -58,8 +65,11 @@ public sealed class Offer
     public int TotalCapacity { get; set; }
     public int ReservedQuantity { get; set; }
     public OfferStatus Status { get; set; } = OfferStatus.PUBLISHED;
+    public DateTimeOffset? PublishedAtUtc { get; set; }
+    public DateTimeOffset? ArchivedAtUtc { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
+    public uint Version { get; set; }
     public List<Booking> Bookings { get; set; } = [];
 
     public int AvailablePlaces => TotalCapacity - ReservedQuantity;

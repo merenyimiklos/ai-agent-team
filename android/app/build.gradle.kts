@@ -4,6 +4,7 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.kapt")
     id("com.google.dagger.hilt.android")
+    id("com.google.android.libraries.mapsplatform.secrets-gradle-plugin")
 }
 
 android {
@@ -77,6 +78,8 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
+    implementation("com.google.maps.android:maps-compose:6.12.0")
+    implementation("com.google.maps.android:maps-compose-utils:6.12.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     implementation("com.google.dagger:hilt-android:2.57.1")
@@ -95,4 +98,11 @@ dependencies {
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
     testImplementation("app.cash.turbine:turbine:1.2.1")
     testImplementation("com.squareup.okhttp3:mockwebserver:5.3.2")
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
+}
+
+secrets {
+    propertiesFileName = "local.properties"
+    defaultPropertiesFileName = "secrets.defaults.properties"
 }
