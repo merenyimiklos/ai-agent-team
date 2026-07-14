@@ -51,6 +51,7 @@ builder.Services.AddSwaggerGen(options =>
         Description = "UgorjBe customer access token"
     });
     options.OperationFilter<AuthorizeOperationFilter>();
+    options.OperationFilter<ProblemResponsesOperationFilter>();
 });
 
 var app = builder.Build();
@@ -70,9 +71,9 @@ app.UseStatusCodePages(async statusCodeContext =>
     await response.WriteAsJsonAsync(payload, statusCodeContext.HttpContext.RequestAborted);
 });
 
+app.UseSwagger();
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
     app.UseSwaggerUI();
 }
 

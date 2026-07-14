@@ -46,7 +46,7 @@ fun DiscoveryScreen(viewModel: DiscoveryViewModel, onOffer: (String) -> Unit) {
     var filtersVisible by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
-            Text(stringResource(R.string.today_in_budapest), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.next_day_in_budapest), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
             Text(stringResource(R.string.app_tagline), color = MaterialTheme.colorScheme.secondary)
             OutlinedTextField(
                 value = state.filter.query,
@@ -123,7 +123,7 @@ private fun FilterDialog(current: OfferFilter, onDismiss: () -> Unit, onApply: (
                     Text(stringResource(R.string.start_window), fontWeight = FontWeight.SemiBold)
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         listOf(
-                            null to R.string.start_today,
+                            24 to R.string.start_next_day,
                             3 to R.string.start_next_three_hours,
                             6 to R.string.start_next_six_hours,
                         ).forEach { (hours, label) ->

@@ -18,6 +18,7 @@ import hu.ugorjbe.app.domain.OfferSummary
 import hu.ugorjbe.app.domain.ProviderDetail
 import hu.ugorjbe.app.domain.ProviderSummary
 import hu.ugorjbe.app.domain.Session
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -101,6 +102,7 @@ data class DiscoveryUiState(
 @HiltViewModel
 class DiscoveryViewModel @Inject constructor(private val repository: CatalogRepository) : ViewModel() {
     val state = MutableStateFlow(DiscoveryUiState())
+    private var loadJob: Job? = null
 
     init { refresh() }
 
@@ -110,13 +112,19 @@ class DiscoveryViewModel @Inject constructor(private val repository: CatalogRepo
         refresh()
     }
 
-    fun refresh() = viewModelScope.launch {
-        state.update { it.copy(loading = true, error = null) }
-        when (val result = repository.offers(state.value.filter)) {
+    fun refresh() {
+        val requestedFilter = state.value.filter
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
+            state.update { it.copy(loading = true, error = null) }
+            val result = repository.offers(requestedFilter)
+            if (state.value.filter != requestedFilter) return@launch
+            when (result) {
             is ApiResult.Success -> state.update {
                 it.copy(loading = false, offers = result.value.items, error = null)
             }
             is ApiResult.Failure -> state.update { it.copy(loading = false, error = result.error) }
+            }
         }
     }
 }
@@ -224,6 +232,7 @@ data class BookingsUiState(
 @HiltViewModel
 class BookingsViewModel @Inject constructor(private val repository: BookingRepository) : ViewModel() {
     val state = MutableStateFlow(BookingsUiState())
+    private var loadJob: Job? = null
 
     init { refresh() }
 
@@ -232,13 +241,19 @@ class BookingsViewModel @Inject constructor(private val repository: BookingRepos
         refresh()
     }
 
-    fun refresh() = viewModelScope.launch {
-        state.update { it.copy(loading = true, cancellingId = null, error = null) }
-        when (val result = repository.list(state.value.scope)) {
+    fun refresh() {
+        val requestedScope = state.value.scope
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
+            state.update { it.copy(loading = true, cancellingId = null, error = null) }
+            val result = repository.list(requestedScope)
+            if (state.value.scope != requestedScope) return@launch
+            when (result) {
             is ApiResult.Success -> state.update {
                 it.copy(loading = false, bookings = result.value.items, error = null)
             }
             is ApiResult.Failure -> state.update { it.copy(loading = false, error = result.error) }
+            }
         }
     }
 

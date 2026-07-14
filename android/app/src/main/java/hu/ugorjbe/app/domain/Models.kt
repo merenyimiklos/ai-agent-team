@@ -126,7 +126,7 @@ data class OfferFilter(
     val query: String = "",
     val category: String? = null,
     val childAge: Int? = null,
-    val startsWithinHours: Int? = null,
+    val startsWithinHours: Int? = 24,
     val maxPrice: BigDecimal? = null,
     val minAvailablePlaces: Int = 1,
     val nearBudapestCenter: Boolean = false,

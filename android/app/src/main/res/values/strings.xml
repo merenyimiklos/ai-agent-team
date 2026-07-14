@@ -18,7 +18,7 @@
     <string name="bookings">Foglalások</string>
     <string name="favorites">Kedvencek</string>
     <string name="profile">Profil</string>
-    <string name="today_in_budapest">Ma Budapesten</string>
+    <string name="next_day_in_budapest">A következő 24 órában Budapesten</string>
     <string name="search_hint">Program vagy szolgáltató keresése</string>
     <string name="filters">Szűrők</string>
     <string name="retry">Újrapróbálás</string>
@@ -73,7 +73,7 @@
     <string name="child_age">Gyermek életkora</string>
     <string name="any_age">Bármely életkor</string>
     <string name="start_window">Kezdési idő</string>
-    <string name="start_today">Ma</string>
+    <string name="start_next_day">24 órán belül</string>
     <string name="start_next_three_hours">3 órán belül</string>
     <string name="start_next_six_hours">6 órán belül</string>
     <string name="maximum_price">Legmagasabb ár</string>

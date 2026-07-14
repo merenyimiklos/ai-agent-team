@@ -7,6 +7,7 @@ import com.squareup.moshi.Moshi
 import hu.ugorjbe.app.data.session.SessionStore
 import hu.ugorjbe.app.domain.ApiError
 import hu.ugorjbe.app.domain.ApiResult
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 import okhttp3.Interceptor
 import okhttp3.Response
@@ -83,6 +84,8 @@ class ApiCallRunner @Inject constructor(
         val mapped = ProblemMapper.map(exception.code(), problem)
         if (mapped.kind == ApiError.Kind.AUTH_REQUIRED) sessionStore.clear()
         ApiResult.Failure(mapped)
+    } catch (exception: CancellationException) {
+        throw exception
     } catch (_: IOException) {
         ApiResult.Failure(ApiError(ApiError.Kind.NETWORK, retryable = true))
     } catch (_: Exception) {

@@ -31,6 +31,7 @@ class DiscoveryViewModelTest {
         assertTrue(viewModel.state.value.loading)
         runCurrent()
         assertEquals(ApiError.Kind.NETWORK, viewModel.state.value.error?.kind)
+        assertEquals(24, repository.filters.single().startsWithinHours)
 
         viewModel.refresh()
         runCurrent()
@@ -40,15 +41,47 @@ class DiscoveryViewModelTest {
         assertFalse(viewModel.state.value.loading)
         assertEquals(listOf(testOfferSummary), viewModel.state.value.offers)
     }
+
+    @Test fun `later filter wins over an obsolete request`() = runTest(dispatcherRule.dispatcher) {
+        val firstResult = CompletableDeferred<ApiResult<Page<OfferSummary>>>()
+        val repository = FilterRaceCatalogRepository(firstResult)
+        val viewModel = DiscoveryViewModel(repository)
+        runCurrent()
+
+        val requestedFilter = OfferFilter(query = "uszoda")
+        viewModel.applyFilter(requestedFilter)
+        runCurrent()
+
+        assertEquals(requestedFilter, viewModel.state.value.filter)
+        assertEquals(listOf(testOfferSummary), viewModel.state.value.offers)
+
+        firstResult.complete(ApiResult.Success(Page(emptyList(), 1, 20, 0, 0)))
+        runCurrent()
+        assertEquals(listOf(testOfferSummary), viewModel.state.value.offers)
+    }
 }
 
 private class RetryCatalogRepository(
     private val retryResult: CompletableDeferred<ApiResult<Page<OfferSummary>>>,
 ) : CatalogRepository {
     private var calls = 0
-    override suspend fun offers(filter: OfferFilter): ApiResult<Page<OfferSummary>> =
-        if (calls++ == 0) ApiResult.Failure(ApiError(ApiError.Kind.NETWORK, retryable = true))
+    val filters = mutableListOf<OfferFilter>()
+    override suspend fun offers(filter: OfferFilter): ApiResult<Page<OfferSummary>> {
+        filters += filter
+        return if (calls++ == 0) ApiResult.Failure(ApiError(ApiError.Kind.NETWORK, retryable = true))
         else retryResult.await()
+    }
+    override suspend fun offer(id: String): ApiResult<OfferDetail> = error("unused")
+    override suspend fun provider(id: String): ApiResult<ProviderDetail> = error("unused")
+}
+
+private class FilterRaceCatalogRepository(
+    private val firstResult: CompletableDeferred<ApiResult<Page<OfferSummary>>>,
+) : CatalogRepository {
+    override suspend fun offers(filter: OfferFilter): ApiResult<Page<OfferSummary>> =
+        if (filter.query.isBlank()) firstResult.await()
+        else ApiResult.Success(Page(listOf(testOfferSummary), 1, 20, 1, 1))
+
     override suspend fun offer(id: String): ApiResult<OfferDetail> = error("unused")
     override suspend fun provider(id: String): ApiResult<ProviderDetail> = error("unused")
 }

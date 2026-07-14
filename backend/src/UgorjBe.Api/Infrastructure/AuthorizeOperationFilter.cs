@@ -22,6 +22,6 @@ public sealed class AuthorizeOperationFilter : IOperationFilter
                 }] = Array.Empty<string>()
             }
         ];
-        operation.Responses.TryAdd("401", new OpenApiResponse { Description = "AUTH_REQUIRED problem details" });
+        ProblemResponsesOperationFilter.Add(operation, context, 401, "AUTH_REQUIRED");
     }
 }
