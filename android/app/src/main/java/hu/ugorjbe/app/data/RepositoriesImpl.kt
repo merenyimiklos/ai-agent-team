@@ -15,6 +15,7 @@ import hu.ugorjbe.app.domain.BookingRepository
 import hu.ugorjbe.app.domain.CatalogRepository
 import hu.ugorjbe.app.domain.FavoritesRepository
 import hu.ugorjbe.app.domain.OfferFilter
+import hu.ugorjbe.app.domain.MapBounds
 import hu.ugorjbe.app.domain.Session
 import java.math.BigDecimal
 import java.time.Instant
@@ -68,6 +69,27 @@ class CatalogRepositoryImpl @Inject constructor(
             sort = if (filter.sort == "DISTANCE" && !useLocation) "START_TIME" else filter.sort,
             direction = filter.direction,
         ).toOfferPage()
+    }
+
+    override suspend fun mapOffers(bounds: MapBounds, filter: OfferFilter) = runner.call {
+        val windowStart = filter.startsWithinHours?.let { Instant.now() }
+        api.mapOffers(
+            south = bounds.south,
+            west = bounds.west,
+            north = bounds.north,
+            east = bounds.east,
+            query = filter.query.trim().ifBlank { null },
+            categories = filter.category?.let(::listOf),
+            childAge = filter.childAge,
+            startsFromUtc = windowStart?.toString(),
+            startsToUtc = windowStart?.plus(filter.startsWithinHours?.toLong() ?: 0, ChronoUnit.HOURS)?.toString(),
+            maxPrice = filter.maxPrice,
+            minAvailablePlaces = filter.minAvailablePlaces,
+            latitude = bounds.centerLatitude,
+            longitude = bounds.centerLongitude,
+            sort = filter.sort,
+            direction = filter.direction,
+        ).toDomain()
     }
 
     override suspend fun offer(id: String) = runner.call { api.offer(id).toDomain() }

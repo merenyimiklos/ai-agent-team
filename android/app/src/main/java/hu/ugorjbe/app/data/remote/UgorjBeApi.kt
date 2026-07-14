@@ -39,6 +39,26 @@ interface UgorjBeApi {
         @Query("pageSize") pageSize: Int = 50,
     ): PageDto<OfferSummaryDto>
 
+    @GET("api/offers/map")
+    suspend fun mapOffers(
+        @Query("south") south: Double,
+        @Query("west") west: Double,
+        @Query("north") north: Double,
+        @Query("east") east: Double,
+        @Query("q") query: String? = null,
+        @Query("category") categories: List<String>? = null,
+        @Query("childAge") childAge: Int? = null,
+        @Query("startsFromUtc") startsFromUtc: String? = null,
+        @Query("startsToUtc") startsToUtc: String? = null,
+        @Query("maxPrice") maxPrice: BigDecimal? = null,
+        @Query("minAvailablePlaces") minAvailablePlaces: Int = 1,
+        @Query("latitude") latitude: Double? = null,
+        @Query("longitude") longitude: Double? = null,
+        @Query("sort") sort: String = "START_TIME",
+        @Query("direction") direction: String = "ASC",
+        @Query("limit") limit: Int = 200,
+    ): MapOfferEnvelopeDto
+
     @GET("api/offers/{offerId}")
     suspend fun offer(@Path("offerId") offerId: String): OfferDetailDto
 
