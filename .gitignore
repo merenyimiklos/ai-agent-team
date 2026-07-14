@@ -1,0 +1,36 @@
+# Local configuration and secrets
+.env
+*.local
+local.properties
+
+# .NET
+**/bin/
+**/obj/
+backend/.tools/
+**/.vs/
+TestResults/
+*.user
+*.suo
+
+# Android / Gradle
+.gradle/
+.kotlin/
+**/build/
+.idea/
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Editors and operating systems
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Logs and temporary files
+*.log
+*.tmp
+*.swp
+
+# Generated Gradle daemon toolchain metadata
+android/gradle/gradle-daemon-jvm.properties
