@@ -13,6 +13,23 @@ namespace UgorjBe.IntegrationTests;
 public sealed class Phase2ApiTests
 {
     [PostgresFact]
+    public async Task Optional_time_filters_can_be_omitted_from_public_and_admin_catalogs()
+    {
+        using var factory = new ApiFactory();
+        await factory.ResetAsync();
+
+        using var publicClient = factory.CreateClient();
+        Assert.Equal(HttpStatusCode.OK, (await publicClient.GetAsync("/api/offers")).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (await publicClient.GetAsync("/api/offers/map?south=47.4&west=18.9&north=47.6&east=19.2")).StatusCode);
+
+        using var admin = factory.CreateClient();
+        await Authenticate(admin, "admin@ugorjbe.local", "UgorjBeAdmin123!");
+        Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync("/api/admin/offers?page=1&pageSize=20")).StatusCode);
+    }
+
+    [PostgresFact]
     public async Task Map_requires_bounded_box_filters_geographically_and_reports_truncation()
     {
         using var factory = new ApiFactory();

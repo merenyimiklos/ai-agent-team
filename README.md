@@ -1,139 +1,186 @@
-# UgorjBe MVP
+# UgorjBe
 
-UgorjBe is a Hungarian demo marketplace for discounted, same-day empty places in family activities. It combines an ASP.NET Core/PostgreSQL API with a native Kotlin and Jetpack Compose Android app. The MVP is pay-on-arrival and intentionally has no provider app, real payment integration, or production deployment.
+UgorjBe is a Hungarian, pay-on-arrival marketplace for discounted same-day places in family activities. The Phase 2 MVP contains a .NET/PostgreSQL API, a native map-first Android customer app, and a TypeScript/React administration web app.
 
-## Demo journey
+The product is original and does not reuse Munch branding, copy, assets, source, or distinctive screen designs. All seeded data and credentials are development fixtures only.
 
-1. Sign in with `demo@ugorjbe.local` / `UgorjBe123!` or register a customer.
-2. Browse and filter bookable Budapest offers.
-3. Open an offer and its provider details.
-4. Reserve one or more places.
-5. Show the returned booking code or QR payload.
-6. View active/previous bookings, cancel before the cutoff, and manage favorite offers/providers.
+## What works
 
-All seeded providers, offers, and credentials are development fixtures. Do not reuse them in production.
+Customers can register or sign in, discover currently bookable activities on a synchronized map or list, search and filter, inspect providers and offers, reserve one or more places, display the booking code/QR payload, cancel within the permitted window, and manage offer/provider favorites. The API remains authoritative for expiry, capacity, cancellation, and overbooking prevention.
+
+Administrators can sign in to the responsive web app, view the dashboard, search/create/edit providers, and search/create/edit/publish/unpublish/archive offers. Admin writes are validated and concurrency-protected by the API; customer tokens are forbidden from every admin endpoint.
+
+## Development credentials
+
+| Role | Email | Password |
+| --- | --- | --- |
+| Customer | `demo@ugorjbe.local` | `UgorjBe123!` |
+| Administrator | `admin@ugorjbe.local` | `UgorjBeAdmin123!` |
+
+These credentials are seeded only when development seeding is enabled. Never reuse them outside local development or test environments.
 
 ## Repository map
 
 ```text
-backend/                   .NET 8 modular-monolith solution and tests
-  src/UgorjBe.Api/         HTTP API, middleware, health, Swagger, Dockerfile
-  src/UgorjBe.Application/ use cases, DTOs, validation, ports
-  src/UgorjBe.Domain/      domain entities, rules, and enums
-  src/UgorjBe.Infrastructure/ EF Core, PostgreSQL, JWT, migrations, seed
-  tests/                   unit and PostgreSQL integration tests
-android/                   Kotlin/Compose single-activity Android application
-docs/                      product decision, architecture, and API contract
-docker-compose.yml         local API and PostgreSQL stack
-.github/workflows/ci.yml   PostgreSQL-backed backend and Android CI gates
-.env.example               local configuration template without real secrets
+backend/                   .NET 8 modular monolith, EF Core migrations, tests
+android/                   Kotlin, Jetpack Compose, Google Maps Compose app
+web-admin/                 React, TypeScript, Vite administration app
+docs/                      product, UX, architecture, and API decisions
+docker-compose.yml         PostgreSQL, API, and administration web stack
+.github/workflows/ci.yml   backend, Android, web, and Compose gates
 ```
 
-The authoritative design and wire behavior are documented in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/API_CONTRACT.md](docs/API_CONTRACT.md).
+See `docs/UX_DIRECTION.md`, `docs/ARCHITECTURE.md`, and `docs/API_CONTRACT.md` for the frozen Phase 2 behavior.
 
-## Prerequisites
+## Fastest local setup: Docker Compose
 
-- Docker Desktop with Docker Compose for the shortest full-stack path.
-- .NET 8 SDK for direct backend development.
-- Android Studio with JDK 17+ and an Android SDK matching the app's `compileSdk`.
+Prerequisites: Docker Desktop with Compose v2.
 
-No production secrets are stored in the repository. Local Docker values are development-only. Copy `.env.example` to `.env` before Compose startup and replace the JWT key if the example file instructs you to do so.
-
-## Start PostgreSQL and the API
-
-From the repository root:
+Create the ignored local environment file and replace the example database password and JWT key with local development values. The JWT signing key must contain at least 32 UTF-8 bytes.
 
 ```powershell
 Copy-Item .env.example .env
-docker compose up --build
+docker compose up --build --detach
+docker compose ps
 ```
 
-On macOS/Linux:
+macOS/Linux:
 
 ```bash
 cp .env.example .env
-docker compose up --build
+docker compose up --build --detach
+docker compose ps
 ```
 
-The API applies the committed migration and idempotent development seed when configured by Compose. The seed keeps booking-linked history intact and appends a deterministic rolling batch when the previous demo schedule has expired, so a retained database volume remains useful. Wait until the health endpoint reports healthy:
+The API migrates and seeds the database at startup. Wait for `http://localhost:8081/health` to report `Healthy`.
 
-- API: `http://localhost:8080`
-- Health: `http://localhost:8080/health`
-- Swagger UI: `http://localhost:8080/swagger`
-- OpenAPI JSON: `http://localhost:8080/swagger/v1/swagger.json`
+| Service | Local URL |
+| --- | --- |
+| Administration web | `http://localhost:8080` |
+| API | `http://localhost:8081` |
+| API health | `http://localhost:8081/health` |
+| Swagger UI (Development) | `http://localhost:8081/swagger` |
+| OpenAPI JSON | `http://localhost:8081/swagger/v1/swagger.json` |
+| PostgreSQL | `localhost:5432` |
 
-Stop the stack with `docker compose down`. Add `-v` only when you intentionally want to delete the local database and reseed it.
+The administration container proxies `/api` and `/health` to the API, so the browser uses same-origin requests. If 8080 is occupied, set `ADMIN_WEB_PORT` in `.env` to another free host port such as 8082. View logs with `docker compose logs --follow`. Stop without deleting data using `docker compose down`; add `--volumes` only when intentionally resetting the local database.
 
-## Run the backend directly
+## Google Maps key for Android
 
-Provide a reachable PostgreSQL connection string and a development-only JWT signing key of at least 32 bytes:
+The committed `android/secrets.defaults.properties` contains only a harmless build placeholder so CI can compile. A real key must never be committed.
+
+1. In a Google Cloud project that you control, enable **Maps SDK for Android**. Billing may be required by Google; this repository does not purchase or provision it.
+2. Create an API key and restrict its API access to **Maps SDK for Android**.
+3. Add an Android application restriction for package `hu.ugorjbe.app` and the SHA-1 certificate fingerprint of each allowed build. Obtain the debug fingerprint with `cd android` then `./gradlew signingReport` (`.\gradlew.bat signingReport` on Windows).
+4. Add this ignored line to `android/local.properties` alongside `sdk.dir`:
+
+```properties
+MAPS_API_KEY=your_restricted_local_key
+```
+
+5. Sync Gradle and run the debug app. Key restrictions can take several minutes to propagate.
+
+Without a valid local key the APK still builds, but Google map tiles do not render. The list view and the rest of the backend-backed customer flow remain usable. Never put the key in source, Gradle scripts, `.env.example`, CI logs, or a pull request.
+
+## Run Android
+
+Prerequisites: Android Studio/JDK 17 and Android SDK platform 36. Start the Compose stack first, then open `android/` and run the `app` debug configuration on a Google APIs emulator. The debug client calls `http://10.0.2.2:8081/`, the emulator alias for the host loopback interface.
+
+The app requests approximate location only after the user invokes the location action. Denial leaves Budapest discovery available. Explore opens map-first; Map and List share filters and selection, while the server supplies bounded live results.
+
+Command-line checks:
+
+```powershell
+Set-Location android
+.\gradlew.bat testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest --no-daemon
+```
+
+macOS/Linux: use `./gradlew`. The debug APK is written below `android/app/build/outputs/apk/debug/`.
+
+## Run the API directly
+
+Prerequisites: .NET 8 SDK and a PostgreSQL 16-compatible database.
 
 ```powershell
 $env:ConnectionStrings__Default = 'Host=localhost;Port=5432;Database=ugorjbe;Username=ugorjbe;Password=local-password'
 $env:Jwt__SigningKey = 'replace-with-at-least-32-development-bytes'
+$env:DatabaseInitialization__Enabled = 'true'
 $env:SeedData__Enabled = 'true'
-dotnet run --project backend/src/UgorjBe.Api/UgorjBe.Api.csproj --urls http://localhost:8080
+dotnet run --project backend/src/UgorjBe.Api/UgorjBe.Api.csproj --urls http://localhost:8081
 ```
 
-The direct process uses the same URLs and seeded login as Compose.
+Development CORS allows only `http://localhost:5173`. Times are stored/transmitted in UTC; administrator date-time input is interpreted strictly as Europe/Budapest local time.
 
-## Build and test the backend
+Backend gates:
 
 ```powershell
-dotnet restore backend/UgorjBe.sln
-dotnet build backend/UgorjBe.sln --no-restore
-dotnet test backend/tests/UgorjBe.UnitTests/UgorjBe.UnitTests.csproj --no-build
-dotnet test backend/tests/UgorjBe.IntegrationTests/UgorjBe.IntegrationTests.csproj --no-build
+dotnet restore backend/UgorjBe.sln --locked-mode
+dotnet build backend/UgorjBe.sln -c Release --no-restore
+dotnet format backend/UgorjBe.sln --verify-no-changes --no-restore
+dotnet test backend/tests/UgorjBe.UnitTests/UgorjBe.UnitTests.csproj -c Release --no-build
+$env:UGORJBE_TEST_CONNECTION = 'Host=localhost;Port=5432;Database=ugorjbe_test;Username=ugorjbe;Password=local-password;Include Error Detail=true'
+dotnet test backend/tests/UgorjBe.IntegrationTests/UgorjBe.IntegrationTests.csproj -c Release --no-build
 ```
 
-PostgreSQL integration tests require an explicitly supplied disposable test database. The test fixture migrates and resets that database, so never point it at data you need to keep:
+The PostgreSQL test fixture migrates and resets the supplied database. Never point `UGORJBE_TEST_CONNECTION` at data you need to keep.
+
+## Run the administration web directly
+
+Prerequisites: Node.js 22.14 or newer. Start the API on 8081 first.
 
 ```powershell
-$env:UGORJBE_TEST_CONNECTION = 'Host=localhost;Port=5432;Database=ugorjbe_test;Username=ugorjbe;Password=local-password'
-dotnet test backend/tests/UgorjBe.IntegrationTests/UgorjBe.IntegrationTests.csproj --no-build
+Set-Location web-admin
+Copy-Item .env.example .env.local
+npm ci
+npm run dev
 ```
 
-Without `UGORJBE_TEST_CONNECTION`, only the database-independent API/OpenAPI contract tests run and the PostgreSQL cases report as skipped. The PostgreSQL suite covers authentication edge cases, expiry, quantity validation, competing reservations, exact capacity restoration, cancellation deadlines, customer ownership, active/previous booking scopes, offer/provider favorites, representative catalog filters/sorting, and rolling seed behavior. The same suite runs against a PostgreSQL 16 service in GitHub Actions.
+Open `http://localhost:5173` and use the administrator credential above. The token is held in memory only, so a browser refresh intentionally returns to sign-in.
 
-## Build and run Android
-
-1. Start the API on host port `8080`.
-2. Open `android/` in Android Studio, let Gradle sync, and select the `app` debug configuration.
-3. Run on a standard Android Emulator.
-
-The debug app calls `http://10.0.2.2:8080/`, the emulator alias for the host loopback interface. Its local debug network configuration permits cleartext only for this development endpoint. Discovery initially requests the next 24 hours, so the rolling evening seed remains visible, with narrower 3- and 6-hour filters available.
-
-Command-line checks from the repository root:
+Web gates:
 
 ```powershell
-cd android
-.\gradlew.bat testDebugUnitTest
-.\gradlew.bat assembleDebug
+Set-Location web-admin
+npm ci
+npm run lint
+npm run typecheck
+npm test
+npm run build
 ```
 
-On macOS/Linux use `./gradlew`. The debug APK is produced under `android/app/build/outputs/apk/debug/`.
+The browser-level smoke test requires the integrated stack and creates uniquely named development records:
 
-## API behavior worth knowing
+```powershell
+Set-Location web-admin
+npx playwright install chromium
+$env:E2E_BASE_URL = 'http://localhost:8080'
+$env:E2E_NO_WEBSERVER = '1'
+npm run test:e2e
+```
 
-- Public endpoints expose offers and providers; bookings, favorites, and `/api/auth/me` require a bearer token.
-- Times are stored and transmitted in UTC. Default same-day discovery uses `Europe/Budapest` to determine the day boundary.
-- Money is decimal plus an explicit ISO currency code; seeded prices use `HUF`.
-- The API is authoritative for expiry, cancellation, and capacity.
-- Booking creation and cancellation lock the PostgreSQL offer row inside a transaction, preventing two customers from taking the same final place.
-- API failures use RFC 7807 problem JSON with stable application error codes so Android can render useful recovery states.
+## Manual end-to-end verification
 
-## Configuration and security
+1. Start Compose and verify API health and the administration login page.
+2. Sign in to the admin web, create or select a provider, create a future offer with Budapest coordinates, and publish it.
+3. Confirm `GET /api/offers/map` and `GET /api/offers` expose the published offer inside matching bounds/filters.
+4. Start Android with a restricted Maps key, sign in as the demo customer, and confirm the same offer appears in both Explore views.
+5. Open it, reserve a place, verify the booking code, favorite it, then cancel before the cutoff.
+6. Attempt an admin endpoint with the customer token and confirm HTTP 403.
+7. Check compact/expanded and light/dark Android layouts, location denial fallback, map camera movement, and **Search this area**.
 
-- Never commit `.env`, Android `local.properties`, signing files, access tokens, real database passwords, or production JWT keys.
-- Swagger and seed data are development features.
-- The MVP stores no child names or birth dates.
-- The booking QR payload is a display/check-in reference, not an authentication credential.
-- Providers remain responsible for activity safety, qualifications, fiscal obligations, and any NTAK reporting.
+## Security and operating notes
 
-## Current product limitations
+- Never commit `.env`, `android/local.properties`, Maps keys, access tokens, signing files, production database passwords, or production JWT keys.
+- Swagger and seed data are Development features.
+- PostgreSQL row locks and transactions serialize reservation/cancellation capacity changes; administration rules prevent edits that invalidate confirmed bookings.
+- Money is decimal with an explicit ISO currency code. API timestamps are ISO-8601 UTC values.
+- Booking QR content is a check-in reference, not an authentication credential.
 
-- Provider inventory is seeded; there is no provider or admin application.
-- Payment and commission settlement are represented as pay-on-arrival/manual reconciliation.
-- No refresh token, email verification, password reset, notifications, reviews, waitlist, or offline catalog cache.
-- The product thesis still requires provider occupancy interviews, a compact-area liquidity pilot, customer conversion testing, and Hungarian legal review before production use.
-- `UgorjBe` is a working name pending trademark and domain clearance.
+## Known MVP limitations
+
+- Payment, refunds, settlement, notifications, password reset, email verification, reviews, waitlists, and production identity administration are out of scope.
+- There is no provider self-service app; providers are managed by development administrators.
+- Map use requires a developer-supplied Google Maps key and a Google APIs emulator/device.
+- Admin sessions are deliberately memory-only and do not survive a page refresh; refresh tokens are not implemented.
+- Image URLs reference remote provider imagery; there is no media upload pipeline.
+- This is a local-development MVP, not a production deployment. Hungarian legal, tax, privacy, activity-safety, trademark, and Google Maps commercial-term reviews remain required before any launch.

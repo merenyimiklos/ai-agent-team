@@ -65,8 +65,31 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           cache-read-only: false
-      - name: Test and build debug APK
-        run: bash ./gradlew testDebugUnitTest assembleDebug --no-daemon
+      - name: Test, lint, and build debug APK
+        run: bash ./gradlew testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest --no-daemon
+
+  web-admin:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web-admin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.14.0"
+          cache: npm
+          cache-dependency-path: web-admin/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit and component tests
+        run: npm test
+      - name: Production build
+        run: npm run build
 
   compose-smoke:
     runs-on: ubuntu-latest
@@ -80,13 +103,33 @@ jobs:
       - name: Verify API health
         run: |
           for attempt in {1..30}; do
-            if curl --fail --silent http://localhost:8080/health; then
+            if curl --fail --silent http://localhost:8081/health; then
               exit 0
             fi
             sleep 2
           done
           docker compose logs
           exit 1
+      - name: Verify administration web and proxy
+        run: |
+          curl --fail --silent --retry 20 --retry-delay 2 --retry-connrefused http://localhost:8080/ > /dev/null
+          curl --fail --silent http://localhost:8080/health > /dev/null
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.14.0"
+          cache: npm
+          cache-dependency-path: web-admin/package-lock.json
+      - name: Install browser smoke dependencies
+        working-directory: web-admin
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Integrated administration smoke test
+        working-directory: web-admin
+        env:
+          E2E_BASE_URL: http://localhost:8080
+          E2E_NO_WEBSERVER: "1"
+        run: npm run test:e2e
       - name: Stop the stack
         if: always()
         run: docker compose down --volumes

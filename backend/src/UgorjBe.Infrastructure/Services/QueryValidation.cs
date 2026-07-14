@@ -84,7 +84,7 @@ internal static class QueryValidation
 
     private static void ValidateUtc(DateTimeOffset? value, string field, Dictionary<string, string[]> errors)
     {
-        if (value?.Offset != TimeSpan.Zero) Add(errors, field, "UTC időpont szükséges.");
+        if (value.HasValue && value.Value.Offset != TimeSpan.Zero) Add(errors, field, "UTC időpont szükséges.");
     }
 
     private static void ValidateBounds(

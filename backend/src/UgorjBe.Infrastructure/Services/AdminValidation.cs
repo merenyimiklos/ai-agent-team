@@ -74,8 +74,8 @@ internal static class AdminValidation
     public static void OfferQuery(AdminOfferQuery query)
     {
         var errors = new Dictionary<string, string[]>();
-        if (query.StartsFromUtc?.Offset != TimeSpan.Zero) Add(errors, "startsFromUtc", "UTC időpont szükséges.");
-        if (query.StartsToUtc?.Offset != TimeSpan.Zero) Add(errors, "startsToUtc", "UTC időpont szükséges.");
+        if (query.StartsFromUtc.HasValue && query.StartsFromUtc.Value.Offset != TimeSpan.Zero) Add(errors, "startsFromUtc", "UTC időpont szükséges.");
+        if (query.StartsToUtc.HasValue && query.StartsToUtc.Value.Offset != TimeSpan.Zero) Add(errors, "startsToUtc", "UTC időpont szükséges.");
         if (query.Q?.Trim().Length > 100) Add(errors, "q", "A keresés legfeljebb 100 karakter lehet.");
         if (query.StartsFromUtc is not null && query.StartsToUtc <= query.StartsFromUtc) Add(errors, "startsToUtc", "A felső időhatárnak későbbinek kell lennie.");
         Page(errors, query.Page, query.PageSize);
