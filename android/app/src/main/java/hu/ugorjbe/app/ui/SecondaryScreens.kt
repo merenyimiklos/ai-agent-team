@@ -1,26 +1,40 @@
 package hu.ugorjbe.app.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.Business
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.Email
+import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Logout
+import androidx.compose.material.icons.outlined.Phone
+import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -29,14 +43,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.Surface
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,13 +57,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import hu.ugorjbe.app.BuildConfig
 import hu.ugorjbe.app.R
 import hu.ugorjbe.app.domain.Booking
 import hu.ugorjbe.app.domain.ProviderSummary
+import hu.ugorjbe.app.ui.theme.UgorjBeRadius
+import hu.ugorjbe.app.ui.theme.UgorjBeSpacing
 import hu.ugorjbe.app.ui.viewmodel.BookingsViewModel
 import hu.ugorjbe.app.ui.viewmodel.FavoritesViewModel
 import hu.ugorjbe.app.ui.viewmodel.ProviderViewModel
@@ -59,24 +77,46 @@ import hu.ugorjbe.app.ui.viewmodel.ProviderViewModel
 fun BookingsScreen(viewModel: BookingsViewModel) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var cancelTarget by remember { mutableStateOf<String?>(null) }
+
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        Text(stringResource(R.string.bookings), Modifier.padding(20.dp), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-        TabRow(selectedTabIndex = if (state.scope == "ACTIVE") 0 else 1) {
-            Tab(selected = state.scope == "ACTIVE", onClick = { viewModel.setScope("ACTIVE") }, text = { Text(stringResource(R.string.active)) })
-            Tab(selected = state.scope == "PREVIOUS", onClick = { viewModel.setScope("PREVIOUS") }, text = { Text(stringResource(R.string.previous)) })
+        ScreenHeader(
+            eyebrow = stringResource(R.string.your_next_adventure),
+            title = stringResource(R.string.bookings),
+        )
+        TabRow(
+            selectedTabIndex = if (state.scope == "ACTIVE") 0 else 1,
+            containerColor = MaterialTheme.colorScheme.background,
+        ) {
+            Tab(
+                selected = state.scope == "ACTIVE",
+                onClick = { viewModel.setScope("ACTIVE") },
+                text = { Text(stringResource(R.string.active)) },
+            )
+            Tab(
+                selected = state.scope == "PREVIOUS",
+                onClick = { viewModel.setScope("PREVIOUS") },
+                text = { Text(stringResource(R.string.previous)) },
+            )
         }
         when {
             state.loading -> LoadingPane(Modifier.fillMaxSize())
-            state.error != null -> ErrorPane(state.error!!, { viewModel.refresh() }, Modifier.fillMaxSize())
-            state.bookings.isEmpty() -> Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
-                Text(stringResource(if (state.scope == "ACTIVE") R.string.no_active_bookings else R.string.no_previous_bookings))
-            }
+            state.error != null -> ErrorPane(state.error, { viewModel.refresh() }, Modifier.fillMaxSize())
+            state.bookings.isEmpty() -> Phase3EmptyState(
+                title = stringResource(R.string.empty_bookings_title),
+                body = stringResource(R.string.empty_bookings_body),
+                modifier = Modifier.fillMaxSize(),
+            )
             else -> LazyColumn(
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(
+                    start = UgorjBeSpacing.xl,
+                    end = UgorjBeSpacing.xl,
+                    top = UgorjBeSpacing.lg,
+                    bottom = 112.dp,
+                ),
+                verticalArrangement = Arrangement.spacedBy(UgorjBeSpacing.lg),
             ) {
                 items(state.bookings, key = { it.id }) { booking ->
-                    BookingCard(
+                    Phase3BookingCard(
                         booking = booking,
                         cancelling = state.cancellingId == booking.id,
                         onCancel = { cancelTarget = booking.id },
@@ -85,6 +125,7 @@ fun BookingsScreen(viewModel: BookingsViewModel) {
             }
         }
     }
+
     cancelTarget?.let { id ->
         AlertDialog(
             onDismissRequest = { cancelTarget = null },
@@ -96,36 +137,86 @@ fun BookingsScreen(viewModel: BookingsViewModel) {
                     viewModel.cancel(id)
                 }) { Text(stringResource(R.string.confirm)) }
             },
-            dismissButton = { TextButton(onClick = { cancelTarget = null }) { Text(stringResource(R.string.cancel)) } },
+            dismissButton = {
+                TextButton(onClick = { cancelTarget = null }) { Text(stringResource(R.string.cancel)) }
+            },
         )
     }
+
     state.message?.let { error ->
         AlertDialog(
             onDismissRequest = viewModel::dismissMessage,
             text = { Text(errorText(error)) },
-            confirmButton = { TextButton(onClick = viewModel::dismissMessage) { Text(stringResource(R.string.close)) } },
+            confirmButton = {
+                TextButton(onClick = viewModel::dismissMessage) { Text(stringResource(R.string.close)) }
+            },
         )
     }
 }
 
 @Composable
-private fun BookingCard(booking: Booking, cancelling: Boolean, onCancel: () -> Unit) {
-    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(booking.offer.title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Text(stringResource(statusLabel(booking.status)), color = MaterialTheme.colorScheme.primary)
-            }
-            Text(booking.offer.providerName)
-            Text(formatDateTime(booking.offer.startsAtUtc))
-            Text("${booking.quantity} × ${formatMoney(booking.unitPrice)} = ${formatMoney(booking.totalPrice)}")
-            if (booking.status == "CONFIRMED") {
-                Text("${stringResource(R.string.booking_code)}: ${booking.bookingCode}", fontWeight = FontWeight.Bold)
-            }
-            if (booking.cancellationAllowed) {
-                TextButton(onClick = onCancel, enabled = !cancelling) {
-                    if (cancelling) CircularProgressIndicator(Modifier.padding(2.dp))
-                    else Text(stringResource(R.string.cancel_booking))
+private fun Phase3BookingCard(booking: Booking, cancelling: Boolean, onCancel: () -> Unit) {
+    Card(
+        Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(UgorjBeRadius.large),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+    ) {
+        Column {
+            ExperienceImage(
+                imageUrl = booking.offer.imageUrl,
+                category = booking.offer.category,
+                contentDescription = booking.offer.title,
+                modifier = Modifier.fillMaxWidth().height(138.dp),
+            )
+            Column(
+                Modifier.padding(UgorjBeSpacing.lg),
+                verticalArrangement = Arrangement.spacedBy(UgorjBeSpacing.sm),
+            ) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(
+                        booking.offer.title,
+                        Modifier.weight(1f),
+                        style = MaterialTheme.typography.titleLarge,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Spacer(Modifier.size(8.dp))
+                    Surface(
+                        shape = RoundedCornerShape(UgorjBeRadius.pill),
+                        color = if (booking.status == "CONFIRMED") MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+                    ) {
+                        Text(
+                            stringResource(statusLabel(booking.status)),
+                            Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            style = MaterialTheme.typography.labelMedium,
+                        )
+                    }
+                }
+                Text(booking.offer.providerName, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(formatDateTime(booking.offer.startsAtUtc), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                HorizontalDivider()
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("${booking.quantity} × ${formatMoney(booking.unitPrice)}")
+                    Text(formatMoney(booking.totalPrice), fontWeight = FontWeight.ExtraBold)
+                }
+                if (booking.status == "CONFIRMED") {
+                    Surface(shape = RoundedCornerShape(UgorjBeRadius.medium), color = MaterialTheme.colorScheme.primaryContainer) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(stringResource(R.string.booking_code_hint), style = MaterialTheme.typography.labelMedium)
+                            Text(booking.bookingCode, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
+                if (booking.cancellationAllowed) {
+                    OutlinedButton(onClick = onCancel, enabled = !cancelling, modifier = Modifier.fillMaxWidth()) {
+                        if (cancelling) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                        else Text(stringResource(R.string.cancel_booking))
+                    }
                 }
             }
         }
@@ -137,41 +228,77 @@ fun FavoritesScreen(viewModel: FavoritesViewModel, onOffer: (String) -> Unit, on
     val state by viewModel.state.collectAsStateWithLifecycle()
     var tab by remember { mutableStateOf(0) }
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        Text(stringResource(R.string.favorites), Modifier.padding(20.dp), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-        TabRow(selectedTabIndex = tab) {
+        ScreenHeader(
+            eyebrow = stringResource(R.string.saved_for_later),
+            title = stringResource(R.string.favorites),
+        )
+        TabRow(selectedTabIndex = tab, containerColor = MaterialTheme.colorScheme.background) {
             Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text(stringResource(R.string.favorite_offers)) })
             Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text(stringResource(R.string.favorite_providers)) })
         }
         when {
             state.loading -> LoadingPane(Modifier.fillMaxSize())
-            state.error != null -> ErrorPane(state.error!!, { viewModel.refresh() }, Modifier.fillMaxSize())
-            tab == 0 && state.offers.isEmpty() -> EmptyText(R.string.no_favorite_offers)
-            tab == 1 && state.providers.isEmpty() -> EmptyText(R.string.no_favorite_providers)
+            state.error != null -> ErrorPane(state.error, { viewModel.refresh() }, Modifier.fillMaxSize())
+            tab == 0 && state.offers.isEmpty() -> Phase3EmptyState(
+                stringResource(R.string.empty_favorites_title),
+                stringResource(R.string.empty_favorites_body),
+                Modifier.fillMaxSize(),
+            )
+            tab == 1 && state.providers.isEmpty() -> Phase3EmptyState(
+                stringResource(R.string.empty_favorites_title),
+                stringResource(R.string.no_favorite_providers),
+                Modifier.fillMaxSize(),
+            )
             tab == 0 -> LazyColumn(
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) { items(state.offers, key = { it.id }) { OfferCard(it, { onOffer(it.id) }) } }
+                contentPadding = PaddingValues(start = UgorjBeSpacing.xl, end = UgorjBeSpacing.xl, top = UgorjBeSpacing.lg, bottom = 112.dp),
+                verticalArrangement = Arrangement.spacedBy(UgorjBeSpacing.lg),
+            ) {
+                items(state.offers, key = { it.id }) { offer -> OfferCard(offer, { onOffer(offer.id) }) }
+            }
             else -> LazyColumn(
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) { items(state.providers, key = { it.id }) { ProviderCard(it) { onProvider(it.id) } } }
+                contentPadding = PaddingValues(start = UgorjBeSpacing.xl, end = UgorjBeSpacing.xl, top = UgorjBeSpacing.lg, bottom = 112.dp),
+                verticalArrangement = Arrangement.spacedBy(UgorjBeSpacing.lg),
+            ) {
+                items(state.providers, key = { it.id }) { provider -> Phase3ProviderCard(provider) { onProvider(provider.id) } }
+            }
         }
     }
 }
 
 @Composable
-private fun EmptyText(text: Int) = Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) { Text(stringResource(text)) }
+private fun Phase3EmptyState(title: String, body: String, modifier: Modifier = Modifier) {
+    Box(modifier.padding(32.dp), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(UgorjBeSpacing.md)) {
+            Phase3Lottie(R.raw.empty_discovery, Modifier.size(156.dp), loop = true) {
+                Icon(Icons.Outlined.BookmarkBorder, null, Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary)
+            }
+            Text(title, style = MaterialTheme.typography.headlineSmall)
+            Text(body, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
 
 @Composable
-private fun ProviderCard(provider: ProviderSummary, onClick: () -> Unit) {
-    Card(onClick = onClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
-        Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Outlined.Business, null)
-            Column(Modifier.weight(1f)) {
-                Text(provider.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Text(provider.shortDescription)
+private fun Phase3ProviderCard(provider: ProviderSummary, onClick: () -> Unit) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(UgorjBeRadius.large),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
+    ) {
+        Row(Modifier.padding(UgorjBeSpacing.md), horizontalArrangement = Arrangement.spacedBy(UgorjBeSpacing.md), verticalAlignment = Alignment.CenterVertically) {
+            ExperienceImage(
+                imageUrl = provider.imageUrl,
+                category = "PARENT_CHILD",
+                contentDescription = provider.name,
+                modifier = Modifier.size(82.dp).clip(RoundedCornerShape(UgorjBeRadius.medium)),
+            )
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(provider.name, style = MaterialTheme.typography.titleMedium)
+                Text(provider.shortDescription, maxLines = 2, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("${provider.address.city}, ${provider.address.street}", style = MaterialTheme.typography.bodySmall)
             }
+            Icon(Icons.Outlined.ChevronRight, null)
         }
     }
 }
@@ -181,15 +308,20 @@ private fun ProviderCard(provider: ProviderSummary, onClick: () -> Unit) {
 fun ProviderScreen(viewModel: ProviderViewModel, onBack: () -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.provider)) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, null) } },
+                title = {},
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+                navigationIcon = {
+                    IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, stringResource(R.string.close)) }
+                },
                 actions = {
                     IconButton(onClick = viewModel::toggleFavorite, enabled = state.provider != null) {
                         Icon(
                             if (state.favorite) Icons.Outlined.Bookmark else Icons.Outlined.BookmarkBorder,
                             stringResource(if (state.favorite) R.string.favorite_remove else R.string.favorite_add),
+                            tint = if (state.favorite) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurface,
                         )
                     }
                 },
@@ -198,38 +330,58 @@ fun ProviderScreen(viewModel: ProviderViewModel, onBack: () -> Unit) {
     ) { padding ->
         when {
             state.loading -> LoadingPane(Modifier.fillMaxSize().padding(padding))
-            state.error != null -> ErrorPane(state.error!!, { viewModel.refresh() }, Modifier.fillMaxSize().padding(padding))
+            state.error != null -> ErrorPane(state.error, { viewModel.refresh() }, Modifier.fillMaxSize().padding(padding))
             state.provider != null -> {
-                val provider = state.provider!!
+                val provider = state.provider
                 LazyColumn(
                     modifier = Modifier.fillMaxSize().padding(padding),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    contentPadding = PaddingValues(bottom = 48.dp),
+                    verticalArrangement = Arrangement.spacedBy(UgorjBeSpacing.lg),
                 ) {
                     item {
-                        Surface(
-                            modifier = Modifier.size(72.dp),
-                            shape = RoundedCornerShape(24.dp),
-                            color = MaterialTheme.colorScheme.secondaryContainer,
-                        ) { Icon(Icons.Outlined.Business, null, Modifier.padding(18.dp), tint = MaterialTheme.colorScheme.secondary) }
+                        ExperienceImage(
+                            imageUrl = provider.imageUrl,
+                            category = "PARENT_CHILD",
+                            contentDescription = provider.name,
+                            modifier = Modifier.fillMaxWidth().height(246.dp),
+                        )
                     }
-                    item { Text(provider.name, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold) }
-                    item { Text(provider.shortDescription, color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.titleMedium) }
-                    item { Text(provider.description, style = MaterialTheme.typography.bodyLarge) }
                     item {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Icon(Icons.Outlined.LocationOn, null)
-                            Text("${provider.address.postalCode} ${provider.address.city}, ${provider.address.street}")
+                        Column(Modifier.padding(horizontal = UgorjBeSpacing.xl), verticalArrangement = Arrangement.spacedBy(UgorjBeSpacing.sm)) {
+                            Text(provider.name, style = MaterialTheme.typography.headlineLarge)
+                            Text(provider.shortDescription, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleMedium)
+                            Text(provider.description, style = MaterialTheme.typography.bodyLarge)
                         }
                     }
-                    provider.accessibilityInfo?.let { item { Text("${stringResource(R.string.accessibility)}: $it") } }
-                    item { HorizontalDivider() }
-                    item { Text(stringResource(R.string.provider_offers, provider.activeOfferCount), fontWeight = FontWeight.SemiBold) }
-                    if (provider.phone != null || provider.email != null || provider.websiteUrl != null) {
-                        item { Text(stringResource(R.string.contact), style = MaterialTheme.typography.titleMedium) }
-                        provider.phone?.let { item { Text(it) } }
-                        provider.email?.let { item { Text(it) } }
-                        provider.websiteUrl?.let { item { Text(it) } }
+                    item {
+                        Surface(
+                            modifier = Modifier.padding(horizontal = UgorjBeSpacing.xl).fillMaxWidth(),
+                            shape = RoundedCornerShape(UgorjBeRadius.large),
+                            color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        ) {
+                            Column(Modifier.padding(UgorjBeSpacing.lg), verticalArrangement = Arrangement.spacedBy(UgorjBeSpacing.md)) {
+                                ContactRow(Icons.Outlined.LocationOn, "${provider.address.postalCode} ${provider.address.city}, ${provider.address.street}")
+                                provider.phone?.let { ContactRow(Icons.Outlined.Phone, it) }
+                                provider.email?.let { ContactRow(Icons.Outlined.Email, it) }
+                                provider.websiteUrl?.let { ContactRow(Icons.Outlined.Public, it) }
+                            }
+                        }
+                    }
+                    provider.accessibilityInfo?.let {
+                        item {
+                            Text(
+                                "${stringResource(R.string.accessibility)}: $it",
+                                Modifier.padding(horizontal = UgorjBeSpacing.xl),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    item {
+                        Text(
+                            stringResource(R.string.provider_offers, provider.activeOfferCount),
+                            Modifier.padding(horizontal = UgorjBeSpacing.xl),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
                     }
                 }
             }
@@ -238,32 +390,104 @@ fun ProviderScreen(viewModel: ProviderViewModel, onBack: () -> Unit) {
 }
 
 @Composable
+private fun ContactRow(icon: androidx.compose.ui.graphics.vector.ImageVector, value: String) {
+    Row(horizontalArrangement = Arrangement.spacedBy(UgorjBeSpacing.md), verticalAlignment = Alignment.Top) {
+        Icon(icon, null, tint = MaterialTheme.colorScheme.primary)
+        Text(value, Modifier.weight(1f))
+    }
+}
+
+@Composable
 fun ProfileScreen(displayName: String, email: String, onLogout: () -> Unit) {
     val initials = displayName.split(' ').filter { it.isNotBlank() }.take(2).joinToString("") { it.first().uppercase() }
-    Column(
-        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+    LazyColumn(
+        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
+        contentPadding = PaddingValues(start = UgorjBeSpacing.xl, end = UgorjBeSpacing.xl, bottom = 112.dp),
+        verticalArrangement = Arrangement.spacedBy(UgorjBeSpacing.lg),
     ) {
-        Text(stringResource(R.string.profile), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-        Surface(Modifier.size(80.dp), shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(initials, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
+        item {
+            Column(Modifier.statusBarsPadding().padding(top = UgorjBeSpacing.xl), verticalArrangement = Arrangement.spacedBy(UgorjBeSpacing.sm)) {
+                Text(stringResource(R.string.profile_greeting, displayName), style = MaterialTheme.typography.headlineLarge)
+                Text(stringResource(R.string.profile_subtitle), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        Text(stringResource(R.string.signed_in_as), style = MaterialTheme.typography.labelLarge)
-        Text(displayName, style = MaterialTheme.typography.titleLarge)
-        Text(email)
-        Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
-            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(stringResource(R.string.profile_preferences), style = MaterialTheme.typography.titleMedium)
-                Text(stringResource(R.string.profile_locale))
-                Text(stringResource(R.string.profile_location_note), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        item {
+            Surface(
+                shape = RoundedCornerShape(UgorjBeRadius.hero),
+                color = MaterialTheme.colorScheme.primaryContainer,
+            ) {
+                Row(Modifier.fillMaxWidth().padding(UgorjBeSpacing.xl), verticalAlignment = Alignment.CenterVertically) {
+                    Surface(Modifier.size(72.dp), shape = CircleShape, color = MaterialTheme.colorScheme.primary) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(initials, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onPrimary)
+                        }
+                    }
+                    Column(Modifier.weight(1f).padding(horizontal = UgorjBeSpacing.lg)) {
+                        Text(displayName, style = MaterialTheme.typography.titleLarge)
+                        Text(email, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    }
+                }
             }
         }
-        Text(stringResource(R.string.local_backend), style = MaterialTheme.typography.bodySmall)
-        OutlinedButton(onClick = onLogout) {
-            Icon(Icons.Outlined.Logout, null)
-            Text(stringResource(R.string.logout), Modifier.padding(start = 8.dp))
+        item { Text(stringResource(R.string.profile_experience), style = MaterialTheme.typography.titleMedium) }
+        item {
+            SettingsCard {
+                SettingsRow(Icons.Outlined.DarkMode, stringResource(R.string.appearance), stringResource(R.string.system_theme))
+                HorizontalDivider()
+                SettingsRow(Icons.Outlined.Language, stringResource(R.string.profile_locale), "hu-HU")
+                HorizontalDivider()
+                SettingsRow(Icons.Outlined.LocationOn, stringResource(R.string.use_my_location), stringResource(R.string.profile_location_note))
+            }
         }
+        if (BuildConfig.DEBUG) {
+            item {
+                Surface(shape = RoundedCornerShape(UgorjBeRadius.medium), color = MaterialTheme.colorScheme.tertiaryContainer) {
+                    Text(
+                        stringResource(R.string.local_backend),
+                        Modifier.padding(14.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                    )
+                }
+            }
+        }
+        item {
+            OutlinedButton(onClick = onLogout, modifier = Modifier.fillMaxWidth().height(52.dp)) {
+                Icon(Icons.Outlined.Logout, null)
+                Spacer(Modifier.size(8.dp))
+                Text(stringResource(R.string.logout))
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsCard(content: @Composable () -> Unit) {
+    Surface(shape = RoundedCornerShape(UgorjBeRadius.large), color = MaterialTheme.colorScheme.surfaceContainerLow) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = UgorjBeSpacing.lg), content = { content() })
+    }
+}
+
+@Composable
+private fun SettingsRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String) {
+    Row(Modifier.fillMaxWidth().padding(vertical = UgorjBeSpacing.lg), verticalAlignment = Alignment.CenterVertically) {
+        Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer) {
+            Icon(icon, null, Modifier.padding(10.dp), tint = MaterialTheme.colorScheme.primary)
+        }
+        Column(Modifier.weight(1f).padding(horizontal = UgorjBeSpacing.md)) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun ScreenHeader(eyebrow: String, title: String) {
+    Column(
+        Modifier.statusBarsPadding().padding(horizontal = UgorjBeSpacing.xl, vertical = UgorjBeSpacing.lg),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(eyebrow, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+        Text(title, style = MaterialTheme.typography.headlineLarge)
     }
 }
