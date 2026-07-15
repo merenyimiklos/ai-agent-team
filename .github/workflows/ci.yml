@@ -75,6 +75,14 @@ jobs:
             exit 1
           fi
           tail -n 80 /tmp/android-gradle.log
+      - name: Upload Android Gradle failure log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-gradle-log
+          path: /tmp/android-gradle.log
+          if-no-files-found: error
+          retention-days: 3
 
   web-admin:
     runs-on: ubuntu-latest
