@@ -182,8 +182,17 @@ data class ApiError(
     val retryable: Boolean = false,
 ) {
     enum class Kind {
-        NETWORK, SERVER, AUTH_REQUIRED, INVALID_CREDENTIALS, EMAIL_EXISTS,
-        VALIDATION, NOT_FOUND, OFFER_NOT_BOOKABLE, INSUFFICIENT_CAPACITY,
-        CANCELLATION_NOT_ALLOWED, UNKNOWN,
+        NETWORK,
+        CONTRACT,
+        SERVER,
+        AUTH_REQUIRED,
+        INVALID_CREDENTIALS,
+        EMAIL_EXISTS,
+        VALIDATION,
+        NOT_FOUND,
+        OFFER_NOT_BOOKABLE,
+        INSUFFICIENT_CAPACITY,
+        CANCELLATION_NOT_ALLOWED,
+        UNKNOWN,
     }
 }
