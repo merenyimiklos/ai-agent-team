@@ -9,9 +9,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -21,24 +23,28 @@ import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Groups
+import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Payments
 import androidx.compose.material.icons.outlined.QrCode2
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -47,18 +53,22 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import hu.ugorjbe.app.R
 import hu.ugorjbe.app.domain.Booking
-import hu.ugorjbe.app.domain.OfferDetail
 import hu.ugorjbe.app.domain.Money
+import hu.ugorjbe.app.domain.OfferDetail
+import hu.ugorjbe.app.ui.theme.UgorjBeRadius
+import hu.ugorjbe.app.ui.theme.UgorjBeSpacing
 import hu.ugorjbe.app.ui.viewmodel.OfferDetailViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -71,6 +81,7 @@ fun OfferDetailScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var reservationVisible by remember { mutableStateOf(false) }
+
     state.booking?.let { booking ->
         BookingSuccessScreen(
             booking = booking,
@@ -85,36 +96,53 @@ fun OfferDetailScreen(
         )
         return
     }
+
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.details)) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Outlined.ArrowBack, null) } },
+                title = {},
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Outlined.ArrowBack, stringResource(R.string.back_to_discover))
+                    }
+                },
                 actions = {
                     IconButton(onClick = viewModel::toggleFavorite, enabled = state.offer != null) {
                         Icon(
                             if (state.favorite) Icons.Outlined.Bookmark else Icons.Outlined.BookmarkBorder,
                             stringResource(if (state.favorite) R.string.favorite_remove else R.string.favorite_add),
+                            tint = if (state.favorite) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurface,
                         )
                     }
                 },
             )
         },
+        bottomBar = {
+            state.offer?.let { offer ->
+                Phase3BookingBar(
+                    offer = offer,
+                    quantity = state.quantity,
+                    reserving = state.reserving,
+                    onReserve = { reservationVisible = true },
+                )
+            }
+        },
     ) { padding ->
         when {
             state.loading -> LoadingPane(Modifier.fillMaxSize().padding(padding))
-            state.error != null -> ErrorPane(state.error!!, { viewModel.load() }, Modifier.fillMaxSize().padding(padding))
+            state.error != null -> ErrorPane(state.error, { viewModel.load() }, Modifier.fillMaxSize().padding(padding))
             state.offer != null -> OfferDetailContent(
-                offer = state.offer!!,
+                offer = state.offer,
                 quantity = state.quantity,
-                reserving = state.reserving,
                 onQuantity = viewModel::setQuantity,
-                onReserve = { reservationVisible = true },
-                onProvider = { onProvider(state.offer!!.provider.id) },
+                onProvider = { onProvider(state.offer.provider.id) },
                 modifier = Modifier.padding(padding),
             )
         }
     }
+
     state.message?.let { error ->
         AlertDialog(
             onDismissRequest = viewModel::dismissMessage,
@@ -123,31 +151,55 @@ fun OfferDetailScreen(
             confirmButton = { TextButton(onClick = viewModel::dismissMessage) { Text(stringResource(R.string.close)) } },
         )
     }
+
     if (reservationVisible && state.offer != null) {
-        val offer = state.offer!!
-        val total = Money(offer.discountedUnitPrice.amount.multiply(state.quantity.toBigDecimal()), offer.discountedUnitPrice.currency)
-        AlertDialog(
-            onDismissRequest = { reservationVisible = false },
-            title = { Text(stringResource(R.string.reservation_review)) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(offer.title, style = MaterialTheme.typography.titleMedium)
-                    Text("${stringResource(R.string.quantity)} ${state.quantity}")
-                    Text("${stringResource(R.string.total_price)} ${formatMoney(total)}", fontWeight = FontWeight.Bold)
-                    Text(stringResource(R.string.pay_on_arrival))
-                    Text("${stringResource(R.string.cancellation_deadline)} ${formatDateTime(offer.cancelUntilUtc)}")
+        val offer = state.offer
+        val total = Money(
+            offer.discountedUnitPrice.amount.multiply(state.quantity.toBigDecimal()),
+            offer.discountedUnitPrice.currency,
+        )
+        ModalBottomSheet(onDismissRequest = { reservationVisible = false }) {
+            Column(
+                Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = UgorjBeSpacing.xl),
+                verticalArrangement = Arrangement.spacedBy(UgorjBeSpacing.lg),
+            ) {
+                Text(stringResource(R.string.reservation_summary), style = MaterialTheme.typography.headlineSmall)
+                Text(offer.title, style = MaterialTheme.typography.titleLarge)
+                Surface(shape = RoundedCornerShape(UgorjBeRadius.large), color = MaterialTheme.colorScheme.surfaceContainerLow) {
+                    Column(Modifier.padding(UgorjBeSpacing.lg), verticalArrangement = Arrangement.spacedBy(UgorjBeSpacing.md)) {
+                        SummaryRow(stringResource(R.string.quantity), state.quantity.toString())
+                        SummaryRow(stringResource(R.string.price_per_person), formatMoney(offer.discountedUnitPrice))
+                        HorizontalDivider()
+                        SummaryRow(stringResource(R.string.total_price), formatMoney(total), prominent = true)
+                    }
                 }
-            },
-            confirmButton = {
+                Text(stringResource(R.string.pay_on_arrival), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    "${stringResource(R.string.cancellation_deadline)} ${formatDateTime(offer.cancelUntilUtc)}",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    stringResource(R.string.safe_booking_note),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 Button(
                     onClick = {
                         reservationVisible = false
                         viewModel.reserve()
                     },
-                ) { Text(stringResource(R.string.confirm_reservation)) }
-            },
-            dismissButton = { TextButton(onClick = { reservationVisible = false }) { Text(stringResource(R.string.cancel)) } },
-        )
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    enabled = !state.reserving,
+                    shape = RoundedCornerShape(UgorjBeRadius.medium),
+                ) {
+                    Text(stringResource(R.string.confirm_reservation))
+                }
+                TextButton(onClick = { reservationVisible = false }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                    Text(stringResource(R.string.cancel))
+                }
+                Spacer(Modifier.height(UgorjBeSpacing.md))
+            }
+        }
     }
 }
 
@@ -155,77 +207,190 @@ fun OfferDetailScreen(
 private fun OfferDetailContent(
     offer: OfferDetail,
     quantity: Int,
-    reserving: Boolean,
     onQuantity: (Int) -> Unit,
-    onReserve: () -> Unit,
     onProvider: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        Box(
-            Modifier.fillMaxWidth().height(180.dp).background(MaterialTheme.colorScheme.secondaryContainer),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(Icons.Outlined.CalendarMonth, null, Modifier.size(72.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer)
+    Column(
+        modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
+    ) {
+        Box(Modifier.fillMaxWidth().height(286.dp)) {
+            ExperienceImage(
+                imageUrl = offer.imageUrl ?: offer.provider.imageUrl,
+                category = offer.category,
+                contentDescription = stringResource(R.string.image_description, offer.title),
+                modifier = Modifier.fillMaxSize(),
+            )
             Surface(
-                modifier = Modifier.align(Alignment.TopEnd).padding(18.dp),
-                shape = RoundedCornerShape(22.dp),
-                color = MaterialTheme.colorScheme.tertiaryContainer,
-            ) { Text(stringResource(R.string.discount, offer.discountPercent), Modifier.padding(horizontal = 12.dp, vertical = 7.dp), fontWeight = FontWeight.Bold) }
+                modifier = Modifier.align(Alignment.TopStart).padding(UgorjBeSpacing.lg),
+                shape = RoundedCornerShape(UgorjBeRadius.pill),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+            ) {
+                Text(
+                    stringResource(categoryLabel(offer.category)),
+                    Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
+            Surface(
+                modifier = Modifier.align(Alignment.TopEnd).padding(UgorjBeSpacing.lg),
+                shape = RoundedCornerShape(UgorjBeRadius.pill),
+                color = MaterialTheme.colorScheme.secondary,
+            ) {
+                Text(
+                    stringResource(R.string.discount, offer.discountPercent),
+                    Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                    color = MaterialTheme.colorScheme.onSecondary,
+                    fontWeight = FontWeight.ExtraBold,
+                )
+            }
         }
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text(stringResource(categoryLabel(offer.category)), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-            Text(offer.title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            Text("${formatDateTime(offer.startsAtUtc)} – ${formatTime(offer.endsAtUtc)}", style = MaterialTheme.typography.titleMedium)
+
+        Column(
+            Modifier.padding(UgorjBeSpacing.xl),
+            verticalArrangement = Arrangement.spacedBy(UgorjBeSpacing.xl),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(UgorjBeSpacing.sm)) {
+                Text(offer.title, style = MaterialTheme.typography.headlineLarge)
+                Row(horizontalArrangement = Arrangement.spacedBy(UgorjBeSpacing.lg)) {
+                    DetailMeta(Icons.Outlined.Schedule, "${formatDateTime(offer.startsAtUtc)} – ${formatTime(offer.endsAtUtc)}")
+                }
+                DetailMeta(Icons.Outlined.LocationOn, "${offer.address.postalCode} ${offer.address.city}, ${offer.address.street}")
+            }
+
             Text(offer.description, style = MaterialTheme.typography.bodyLarge)
-            Card(onClick = onProvider, modifier = Modifier.fillMaxWidth()) {
-                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
+
+            Surface(
+                onClick = onProvider,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(UgorjBeRadius.large),
+                color = MaterialTheme.colorScheme.primaryContainer,
+            ) {
+                Row(Modifier.padding(UgorjBeSpacing.lg), verticalAlignment = Alignment.CenterVertically) {
+                    ExperienceImage(
+                        imageUrl = offer.provider.imageUrl,
+                        category = offer.category,
+                        contentDescription = offer.provider.name,
+                        modifier = Modifier.size(64.dp).background(MaterialTheme.colorScheme.surface, CircleShape),
+                    )
+                    Column(Modifier.weight(1f).padding(horizontal = UgorjBeSpacing.md)) {
                         Text(stringResource(R.string.provider), style = MaterialTheme.typography.labelMedium)
-                        Text(offer.provider.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        Text("${offer.address.postalCode} ${offer.address.city}, ${offer.address.street}")
+                        Text(offer.provider.name, style = MaterialTheme.typography.titleMedium)
+                        Text(offer.provider.shortDescription, style = MaterialTheme.typography.bodySmall)
                     }
                     Icon(Icons.Outlined.ChevronRight, stringResource(R.string.view_provider))
                 }
             }
-            InfoRow(Icons.Outlined.Groups, stringResource(R.string.age_range, offer.minChildAge, offer.maxChildAge))
-            if (offer.accompanimentRequired) InfoRow(Icons.Outlined.Groups, stringResource(R.string.accompaniment_required))
-            offer.accessibilityInfo?.let { InfoRow(Icons.Outlined.Accessible, "${stringResource(R.string.accessibility)}: $it") }
-            InfoRow(Icons.Outlined.Payments, stringResource(R.string.pay_on_arrival))
+
+            Row(horizontalArrangement = Arrangement.spacedBy(UgorjBeSpacing.sm)) {
+                InfoPill(Icons.Outlined.Groups, stringResource(R.string.age_range, offer.minChildAge, offer.maxChildAge), Modifier.weight(1f))
+                InfoPill(Icons.Outlined.Payments, stringResource(R.string.pay_on_arrival), Modifier.weight(1f))
+            }
+            if (offer.accompanimentRequired) {
+                DetailMeta(Icons.Outlined.Groups, stringResource(R.string.accompaniment_required))
+            }
+            offer.accessibilityInfo?.let {
+                DetailMeta(Icons.Outlined.Accessible, "${stringResource(R.string.accessibility)}: $it")
+            }
+
             HorizontalDivider()
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
-                Column {
-                    Text(formatMoney(offer.originalUnitPrice), textDecoration = TextDecoration.LineThrough)
-                    Text(formatMoney(offer.discountedUnitPrice), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                PriceBlock(offer.originalUnitPrice, offer.discountedUnitPrice)
+                Surface(shape = RoundedCornerShape(UgorjBeRadius.pill), color = MaterialTheme.colorScheme.tertiaryContainer) {
+                    Text(
+                        stringResource(R.string.places_left, offer.availablePlaces),
+                        Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                        style = MaterialTheme.typography.labelLarge,
+                    )
                 }
-                Text(stringResource(R.string.places_left, offer.availablePlaces), color = MaterialTheme.colorScheme.secondary, fontWeight = FontWeight.Bold)
             }
+
             if (offer.isBookable && offer.availablePlaces > 0) {
                 Text(stringResource(R.string.quantity), style = MaterialTheme.typography.titleMedium)
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    OutlinedButton(onClick = { onQuantity(quantity - 1) }, enabled = quantity > 1) { Text("−") }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(UgorjBeSpacing.lg)) {
+                    OutlinedButton(onClick = { onQuantity(quantity - 1) }, enabled = quantity > 1, shape = CircleShape) { Text("−") }
                     Text(quantity.toString(), style = MaterialTheme.typography.headlineSmall)
-                    OutlinedButton(onClick = { onQuantity(quantity + 1) }, enabled = quantity < offer.availablePlaces.coerceAtMost(10)) { Text("+") }
-                }
-                Button(onClick = onReserve, modifier = Modifier.fillMaxWidth(), enabled = !reserving) {
-                    if (reserving) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                    else Text(stringResource(R.string.reserve))
+                    OutlinedButton(
+                        onClick = { onQuantity(quantity + 1) },
+                        enabled = quantity < offer.availablePlaces.coerceAtMost(10),
+                        shape = CircleShape,
+                    ) { Text("+") }
                 }
             } else {
-                Surface(color = MaterialTheme.colorScheme.errorContainer, shape = RoundedCornerShape(16.dp)) {
-                    Text(stringResource(R.string.booking_closed), Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onErrorContainer)
+                Surface(color = MaterialTheme.colorScheme.errorContainer, shape = RoundedCornerShape(UgorjBeRadius.medium)) {
+                    Text(
+                        stringResource(R.string.booking_closed),
+                        Modifier.padding(UgorjBeSpacing.lg),
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                    )
                 }
             }
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(120.dp))
         }
     }
 }
 
 @Composable
-private fun InfoRow(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String) {
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
-        Icon(icon, null, tint = MaterialTheme.colorScheme.secondary)
-        Text(text, modifier = Modifier.weight(1f))
+private fun Phase3BookingBar(
+    offer: OfferDetail,
+    quantity: Int,
+    reserving: Boolean,
+    onReserve: () -> Unit,
+) {
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerLowest, shadowElevation = 14.dp) {
+        Row(
+            Modifier.fillMaxWidth().navigationBarsPadding().padding(UgorjBeSpacing.lg),
+            horizontalArrangement = Arrangement.spacedBy(UgorjBeSpacing.lg),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            val total = Money(
+                offer.discountedUnitPrice.amount.multiply(quantity.toBigDecimal()),
+                offer.discountedUnitPrice.currency,
+            )
+            Column(Modifier.weight(0.7f)) {
+                Text(stringResource(R.string.total_price), style = MaterialTheme.typography.labelMedium)
+                Text(formatMoney(total), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+            }
+            Button(
+                onClick = onReserve,
+                modifier = Modifier.weight(1.3f).height(54.dp),
+                enabled = offer.isBookable && offer.availablePlaces > 0 && !reserving,
+                shape = RoundedCornerShape(UgorjBeRadius.medium),
+            ) {
+                if (reserving) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                else Text(stringResource(R.string.reserve))
+            }
+        }
+    }
+}
+
+@Composable
+private fun DetailMeta(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String) {
+    Row(horizontalArrangement = Arrangement.spacedBy(UgorjBeSpacing.sm), verticalAlignment = Alignment.Top) {
+        Icon(icon, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+        Text(text, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun InfoPill(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, modifier: Modifier = Modifier) {
+    Surface(modifier, shape = RoundedCornerShape(UgorjBeRadius.medium), color = MaterialTheme.colorScheme.surfaceContainerLow) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Icon(icon, null, tint = MaterialTheme.colorScheme.primary)
+            Text(text, style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+@Composable
+private fun SummaryRow(label: String, value: String, prominent: Boolean = false) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, fontWeight = if (prominent) FontWeight.ExtraBold else FontWeight.SemiBold)
     }
 }
 
@@ -233,34 +398,80 @@ private fun InfoRow(icon: androidx.compose.ui.graphics.vector.ImageVector, text:
 @Composable
 private fun BookingSuccessScreen(booking: Booking, onBookings: () -> Unit, onBack: () -> Unit) {
     val clipboard = LocalClipboardManager.current
-    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.booking_success)) }) }) { padding ->
+    val haptics = LocalHapticFeedback.current
+    LaunchedEffect(booking.id) { haptics.performHapticFeedback(HapticFeedbackType.LongPress) }
+
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = { TopAppBar(title = {}) },
+    ) { padding ->
         Column(
-            Modifier.fillMaxSize().padding(padding).padding(24.dp).verticalScroll(rememberScrollState()),
+            Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(UgorjBeSpacing.xxl)
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Surface(shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
-                Icon(Icons.Outlined.QrCode2, null, Modifier.padding(28.dp).size(92.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer)
-            }
-            Spacer(Modifier.height(20.dp))
-            Text(stringResource(R.string.booking_success), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            Text(booking.offer.title, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
-            Spacer(Modifier.height(24.dp))
-            Text(stringResource(R.string.booking_code), style = MaterialTheme.typography.labelLarge)
-            Text(booking.bookingCode, style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
-            Text(stringResource(R.string.show_at_arrival), textAlign = TextAlign.Center)
-            TextButton(onClick = { clipboard.setText(AnnotatedString(booking.bookingCode)) }) {
-                Text(stringResource(R.string.copy_booking_code))
-            }
-            Spacer(Modifier.height(20.dp))
-            Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
-                Column(Modifier.padding(16.dp)) {
-                    Text(stringResource(R.string.qr_payload), style = MaterialTheme.typography.labelMedium)
-                    Text(booking.qrPayload, style = MaterialTheme.typography.bodySmall)
+            Phase3Lottie(
+                resource = R.raw.booking_success,
+                modifier = Modifier.size(190.dp),
+                loop = false,
+            ) {
+                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer) {
+                    Icon(
+                        Icons.Outlined.QrCode2,
+                        null,
+                        Modifier.padding(32.dp).size(86.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
                 }
             }
-            Spacer(Modifier.height(24.dp))
-            Button(onClick = onBookings, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.bookings)) }
+            Text(stringResource(R.string.booking_success), style = MaterialTheme.typography.headlineLarge, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(UgorjBeSpacing.sm))
+            Text(
+                stringResource(R.string.booking_success_subtitle),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(UgorjBeSpacing.xxl))
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(UgorjBeRadius.hero),
+                color = MaterialTheme.colorScheme.primaryContainer,
+            ) {
+                Column(
+                    Modifier.padding(UgorjBeSpacing.xxl),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(UgorjBeSpacing.sm),
+                ) {
+                    Text(booking.offer.title, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
+                    Text(stringResource(R.string.booking_code_hint), style = MaterialTheme.typography.labelMedium)
+                    Text(
+                        booking.bookingCode,
+                        style = MaterialTheme.typography.displaySmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    TextButton(onClick = { clipboard.setText(AnnotatedString(booking.bookingCode)) }) {
+                        Icon(Icons.Outlined.ContentCopy, null, Modifier.size(18.dp))
+                        Spacer(Modifier.size(6.dp))
+                        Text(stringResource(R.string.copy_booking_code))
+                    }
+                    Surface(shape = RoundedCornerShape(UgorjBeRadius.medium), color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)) {
+                        Column(Modifier.fillMaxWidth().padding(14.dp)) {
+                            Text(stringResource(R.string.qr_payload), style = MaterialTheme.typography.labelMedium)
+                            Text(booking.qrPayload, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(UgorjBeSpacing.xxl))
+            Button(onClick = onBookings, modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(UgorjBeRadius.medium)) {
+                Text(stringResource(R.string.bookings))
+            }
             TextButton(onClick = onBack) { Text(stringResource(R.string.back_to_discover)) }
         }
     }
