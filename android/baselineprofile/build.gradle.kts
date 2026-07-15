@@ -15,7 +15,6 @@ android {
     }
 
     targetProjectPath = ":app"
-    experimentalProperties["android.experimental.self-instrumenting"] = true
 }
 
 baselineProfile {
