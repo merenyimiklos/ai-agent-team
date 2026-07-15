@@ -30,4 +30,6 @@
     <string name="safe_booking_note">A foglalást csak egyszer küldjük el. Az elérhetőséget a szerver ellenőrzi.</string>
     <string name="close_sheet">Lap bezárása</string>
     <string name="image_description">%1$s programképe</string>
+    <string name="your_next_adventure">A KÖVETKEZŐ ÉLMÉNYED</string>
+    <string name="saved_for_later">FÉLRETETTED KÉSŐBBRE</string>
 </resources>
