@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - "codex/**"
+      - "chatgpt/**"
 
 permissions:
   contents: read
@@ -66,7 +67,14 @@ jobs:
         with:
           cache-read-only: false
       - name: Test, lint, and build debug APK
-        run: bash ./gradlew testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest --no-daemon
+        shell: bash
+        run: |
+          if ! bash ./gradlew testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest --no-daemon > /tmp/android-gradle.log 2>&1; then
+            echo "--- Android Gradle failure (last 500 lines) ---"
+            tail -n 500 /tmp/android-gradle.log
+            exit 1
+          fi
+          tail -n 80 /tmp/android-gradle.log
 
   web-admin:
     runs-on: ubuntu-latest
