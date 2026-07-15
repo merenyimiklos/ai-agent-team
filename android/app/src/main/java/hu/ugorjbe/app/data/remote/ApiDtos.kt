@@ -145,25 +145,17 @@ data class OfferDetailDto(
 }
 
 @JsonClass(generateAdapter = false)
-data class MapBoundsDto(
-    val south: Double,
-    val west: Double,
-    val north: Double,
-    val east: Double,
-) {
-    fun toDomain() = MapBounds(south, west, north, east)
-}
-
-@JsonClass(generateAdapter = false)
 data class MapOfferEnvelopeDto(
     val items: List<OfferSummaryDto>,
-    val returnedCount: Int,
-    val limit: Int,
     val isTruncated: Boolean,
-    val bounds: MapBoundsDto,
+    val limit: Int,
 ) {
-    fun toDomain() = MapOfferEnvelope(
-        items.map { it.toDomain() }, returnedCount, limit, isTruncated, bounds.toDomain(),
+    fun toDomain(bounds: MapBounds) = MapOfferEnvelope(
+        items = items.map { it.toDomain() },
+        returnedCount = items.size,
+        limit = limit,
+        isTruncated = isTruncated,
+        bounds = bounds,
     )
 }
 

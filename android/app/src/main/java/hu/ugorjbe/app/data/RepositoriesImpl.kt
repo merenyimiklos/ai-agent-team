@@ -89,7 +89,7 @@ class CatalogRepositoryImpl @Inject constructor(
             longitude = bounds.centerLongitude,
             sort = filter.sort,
             direction = filter.direction,
-        ).toDomain()
+        ).toDomain(bounds)
     }
 
     override suspend fun offer(id: String) = runner.call { api.offer(id).toDomain() }
