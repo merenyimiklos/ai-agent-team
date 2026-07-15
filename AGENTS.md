@@ -2,28 +2,28 @@
 
 ## Mission
 
-Build a working product consisting of an ASP.NET Core backend, a native Android application and a secure administration web application inspired by the marketplace mechanics of Munch, without copying its branding, text, visual assets, source code or distinctive screen designs.
+Build a working product consisting of an ASP.NET Core backend, a native Android application and a secure administration web application inspired by expiring-capacity marketplace mechanics, without copying another product's branding, text, visual assets, source code or distinctive screen designs.
 
 The product turns expiring local capacity into discounted, bookable offers. The selected concept is **UgorjBe**: discounted same-day empty places in family activities and local experiences such as playhouses, workshops, swimming sessions, sports classes, museum programs and baby-parent activities.
 
-The booking MVP and Phase 2 map/admin expansion are complete. `CODEX_PHASE_3.md` defines the active expansion: a production-ready Android visual, motion, image, accessibility, performance and release-quality redesign. Preserve the working backend and administration web unless a verified integration defect or narrowly required presentation field must be fixed.
+The booking MVP and Phase 2 map/admin expansion are complete. Phase 3 defines the production-ready Android foundation. `CODEX_PHASE_4.md` defines the active reference-led visual-polish phase and must be implemented on top of the completed Phase 3 head, not on the older Phase 2 code.
 
 ## Required agent workflow
 
 The root agent acts as engineering lead and orchestrator.
 
-For Phase 3:
+For Phase 4:
 
-1. Reproduce and fix current Android/API integration defects before redesign work, especially map-response deserialization.
-2. Spawn `product_designer` to audit the current customer experience and define target-audience/product principles.
-3. Spawn `mobile_experience_designer` to create `docs/MOBILE_DESIGN_SYSTEM.md`, `docs/MOTION_SPEC.md` and the licensed asset strategy.
-4. Spawn `solution_architect` to freeze dependency, navigation, image, Lottie, testing and release decisions.
-5. Spawn `android_engineer` to implement the complete Android redesign after specifications are stable.
-6. Spawn `android_performance_engineer` to add Macrobenchmark/Baseline Profile coverage, measure critical journeys and verify release optimization.
-7. Spawn `qa_engineer` to run functional, integration, UI, accessibility, visual-state and regression verification.
-8. Have `mobile_experience_designer` perform a post-implementation visual and motion review.
-9. Spawn `reviewer` after implementation. The reviewer must not be the original implementer.
-10. The lead integrates findings, fixes all blocking/high-severity issues and reports exact commands, results and limitations.
+1. Verify the completed Phase 3 branch/PR, real API integration, release build, accessibility and performance gates before visual work.
+2. Spawn `reference_ui_researcher` to create `docs/REFERENCE_APP_BENCHMARK.md` from current lawful public sources.
+3. Spawn `mobile_experience_designer` to audit the real Phase 3 build and create `docs/PHASE4_ART_DIRECTION.md`.
+4. Spawn `solution_architect` to validate navigation, state, dependency, release and test decisions.
+5. Spawn `android_engineer` to implement the complete visual pass after specifications are stable.
+6. Spawn `android_performance_engineer` to rerun release-like benchmarks and fix regressions.
+7. Spawn `qa_engineer` to run functional, integration, UI, accessibility, theme, visual-state and regression verification.
+8. Spawn `brand_originality_reviewer` for an independent reference-similarity/originality review.
+9. Spawn `reviewer` after implementation. Reviewers must not be the original implementer.
+10. The lead fixes all blocking/high-severity findings and reports exact commands, results and limitations.
 
 Agents communicate through committed documents, contracts, test reports, issue/PR notes and results returned to the lead. Do not rely on undocumented assumptions.
 
@@ -41,7 +41,7 @@ A customer can:
 - cancel when permitted;
 - save favorite offers or providers.
 
-Phase 3 changes presentation, motion and production quality, not these authoritative business rules.
+Phase 4 changes visual identity and interaction polish, not these authoritative business rules.
 
 ## Administrator journey
 
@@ -55,7 +55,7 @@ An administrator can use the web application to:
 - enter Hungarian-local times that are converted to UTC over the API;
 - manage address, coordinates, capacity, prices, age limits, category, imagery and accessibility details.
 
-The web client must use authorized backend APIs. It must never access PostgreSQL directly. The current web design is a brand-quality reference for Android, but mobile must remain a native Compose experience.
+The web client must use authorized backend APIs and never access PostgreSQL directly. The current web design is a brand-quality reference for Android, but mobile must remain a native Compose experience. Phase 4 must not redesign the administration web except for a narrowly justified compatibility correction.
 
 ## Technical baseline
 
@@ -74,7 +74,7 @@ The web client must use authorized backend APIs. It must never access PostgreSQL
 
 ### Android
 
-- Kotlin and Jetpack Compose.
+- Kotlin and Jetpack Compose; do not migrate to Flutter or a WebView UI.
 - Material 3 with an original tokenized visual identity.
 - Google Maps Compose for map discovery.
 - Single-activity architecture, Navigation Compose, ViewModel, Coroutines and Flow.
@@ -92,14 +92,13 @@ The web client must use authorized backend APIs. It must never access PostgreSQL
 
 ### Administration web
 
-- TypeScript and a mainstream maintainable React-based stack selected by the lead.
-- Responsive, accessible and original design based on the product design documents.
+- TypeScript and a mainstream maintainable React-based stack.
+- Responsive, accessible and original design based on product design documents.
 - Backend API integration only; no direct database access.
 - Role-aware UI backed by server-side authorization.
 - Form validation, loading, empty, error, unauthorized and retry states.
 - Unit/component tests, browser smoke coverage and a production build.
 - Docker/local-development support and CI integration.
-- Phase 3 should not redesign the administration web except for narrowly justified brand/data compatibility changes.
 
 ## API areas
 
@@ -115,40 +114,40 @@ The contract covers:
 
 Use UTC in storage and ISO-8601 timestamps over the API. Display and accept administrator input clearly in `Europe/Budapest`, then convert explicitly. Model money with decimal values and an explicit ISO currency code. Prevent overbooking with a database-backed concurrency strategy.
 
-## Phase 3 design and motion rules
+## Phase 4 design and originality rules
 
-- Create an original youthful, image-first, premium and fast-to-scan mobile experience without excluding families.
-- Learn from broad current lifestyle/social-product principles, not proprietary identity or distinctive layouts.
-- Do not copy TikTok, Instagram, Munch, Airbnb, Google Maps or another product.
+- Research GreenGo, wigo, Munch, Free2move and historically relevant SHARE NOW material as quality references only.
+- Treat an ambiguous reference name such as `cleengo` as unresolved until an authoritative link or package name is supplied.
+- Learn from principles such as map-first discovery, floating controls, image-led cards, concise hierarchy and one clear primary action.
+- Do not copy logos, names, exact palettes, font combinations, icons, markers, copy, assets, signature motion or distinctive whole-screen compositions.
+- The result must be youthful, bold, uncluttered, image-led, fast to scan, map-native and unmistakably UgorjBe.
 - Do not hide the four compact top-level destinations in a hamburger drawer.
-- Treat Map and List as two presentations of Explore, with preserved shared state.
+- Treat Map and List as two presentations of Explore with preserved shared state.
 - Use motion to explain continuity, hierarchy, state and success; never delay a task for decoration.
-- Lottie is required but limited to purposeful success/empty/loading or brand moments, with static/native fallbacks and documented licenses.
+- Keep Lottie purposeful, finite where appropriate, safely licensed and backed by static/native fallbacks.
 - Respect reduced/system-disabled animation expectations.
-- Use remote imagery when available and an intentional category fallback when not.
-- The app must still look complete with every image request failing.
-- Never use addictive engagement mechanics, feeds, stories, reels, autoplay media or dark patterns.
+- The app must still look complete when every image request fails.
+- Never add feeds, stories, reels, autoplay media, addictive engagement mechanics or dark patterns.
 - Hungarian is the default demo locale; all visible strings remain localization-ready.
 
 ## Quality gates
 
-Before declaring Phase 3 complete:
+Before declaring Phase 4 complete:
 
-- all existing backend restore/build/format/unit/integration gates remain green;
-- administration web lint/typecheck/tests/build remain green;
-- Android DTO contract tests cover the map envelope and representative API responses;
+- all Phase 3 backend, web and Android gates remain green;
+- Android DTO contract tests cover representative API responses;
 - Android unit/UI/accessibility/screenshot or golden tests and debug build pass;
 - Android release build passes with R8/minification and safe resource shrinking;
 - connected tests pass on a configured Google APIs emulator/device;
-- Baseline Profile is generated and a measured benchmark report identifies device/build/commands/results;
+- Baseline Profile remains generated and consumed, and critical benchmarks are rerun;
 - Docker Compose starts backend, database and admin web;
 - a seeded/admin-created published offer appears in both Android Map and List;
-- complete discovery -> detail -> reserve -> success -> booking code -> cancellation remains functional;
+- discovery -> detail -> reserve -> success -> booking code -> cancellation remains functional;
 - favorites and error recovery remain functional;
 - light/dark, compact/expanded, 200% font scaling, TalkBack semantics and reduced-motion behavior are reviewed;
-- Lottie/image failures degrade safely;
-- post-implementation design review and independent engineering review have no unresolved blocking/high-severity findings;
-- README and Phase 3 reports contain exact setup, build, release, test, Maps and benchmark instructions;
+- image/Lottie/Maps/backend failures degrade safely;
+- reference benchmark, art direction, visual review and captured Phase 4 evidence exist;
+- independent originality and engineering reviews have no unresolved blocking/high-severity findings;
 - no API keys, passwords, signing files, proprietary fonts/assets or production secrets are committed.
 
 ## Git rules
@@ -162,4 +161,4 @@ Before declaring Phase 3 complete:
 
 ## Definition of done
 
-The result is not done when screenshots or redesigned files merely exist. It is done when a fresh developer can start the stack, supply a local Maps key, build debug and release Android variants, sign in, discover real offers on Map/List, complete booking/favorite/cancellation flows, observe the production visual/motion system and safe fallbacks, run documented tests/benchmarks and review a draft pull request containing measured evidence and no unresolved blocking defects.
+The result is not done when screenshots or redesigned files merely exist. It is done when a fresh developer can start the stack, supply a local Maps key, build debug and release Android variants, sign in, discover real offers on Map/List, complete booking/favorite/cancellation flows, observe the original Phase 4 visual/motion system and safe fallbacks, run documented tests/benchmarks and review a draft pull request containing measured evidence and no unresolved blocking defects.
