@@ -84,15 +84,22 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           cache-read-only: false
-      - name: Test, lint, and build debug APK
+      - name: Test, lint, and build Android variants
         shell: bash
         run: |
-          if ! bash ./gradlew testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest --no-daemon > /tmp/android-gradle.log 2>&1; then
+          if ! bash ./gradlew \
+            testDebugUnitTest \
+            lintDebug \
+            assembleDebug \
+            assembleDebugAndroidTest \
+            assembleRelease \
+            :baselineprofile:assemble \
+            --no-daemon > /tmp/android-gradle.log 2>&1; then
             echo "--- Android Gradle failure (last 500 lines) ---"
             tail -n 500 /tmp/android-gradle.log
             exit 1
           fi
-          tail -n 80 /tmp/android-gradle.log
+          tail -n 100 /tmp/android-gradle.log
       - name: Upload Android Gradle failure log
         if: failure()
         uses: actions/upload-artifact@v4
