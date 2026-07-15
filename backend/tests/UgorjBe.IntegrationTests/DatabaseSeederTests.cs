@@ -29,6 +29,25 @@ public sealed class DatabaseSeederTests
     }
 
     [PostgresFact]
+    public async Task Late_night_initialization_never_rounds_back_into_the_past()
+    {
+        var lateNightUtc = DateTimeOffset.Parse("2026-07-14T21:00:00Z");
+        using var factory = new ApiFactory(lateNightUtc);
+
+        await factory.ResetAsync();
+
+        await using var scope = factory.Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<UgorjBeDbContext>();
+        var primary = await dbContext.Offers.SingleAsync(x => x.Id == DatabaseSeeder.PrimaryOfferId);
+        var localStart = TimeZoneInfo.ConvertTime(primary.StartsAtUtc, BudapestTimeZone);
+
+        Assert.True(primary.BookingCutoffUtc > lateNightUtc);
+        Assert.Equal(new DateOnly(2026, 7, 15), DateOnly.FromDateTime(localStart.Date));
+        Assert.Equal(9, localStart.Hour);
+        Assert.Equal(8, await dbContext.Offers.CountAsync());
+    }
+
+    [PostgresFact]
     public async Task Following_day_restarts_are_idempotent_and_append_without_rewriting_history()
     {
         var eveningUtc = DateTimeOffset.Parse("2026-07-14T20:30:00Z");
