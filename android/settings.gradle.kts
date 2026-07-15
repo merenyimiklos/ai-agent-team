@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "UgorjBe"
 include(":app")
+include(":baselineprofile")
