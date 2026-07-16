@@ -79,7 +79,7 @@ class CriticalJourneyBenchmark {
 
     private fun MacrobenchmarkScope.launchAuthenticatedApp() {
         pressHome()
-        clearPackageData()
+        device.executeShellCommand("pm clear $PackageName")
         startActivityAndWait()
         device.waitForIdle()
 
