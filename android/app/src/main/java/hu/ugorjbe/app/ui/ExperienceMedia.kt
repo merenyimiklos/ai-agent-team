@@ -15,9 +15,7 @@ import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Pool
 import androidx.compose.material.icons.outlined.SportsBasketball
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,14 +42,38 @@ internal data class CategoryArtwork(
 )
 
 internal fun categoryArtwork(category: String): CategoryArtwork = when (category) {
-    "PLAYHOUSE" -> CategoryArtwork(Icons.Outlined.ChildCare, listOf(Color(0xFFFF7A8F), Color(0xFFFFC36A)))
-    "WORKSHOP" -> CategoryArtwork(Icons.Outlined.Palette, listOf(Color(0xFF805CFF), Color(0xFFFF6F91)))
-    "MOVEMENT" -> CategoryArtwork(Icons.Outlined.FitnessCenter, listOf(Color(0xFF3C6FF7), Color(0xFF2BC4B6)))
-    "SWIMMING" -> CategoryArtwork(Icons.Outlined.Pool, listOf(Color(0xFF1B8BF2), Color(0xFF63D6E8)))
-    "SPORT" -> CategoryArtwork(Icons.Outlined.SportsBasketball, listOf(Color(0xFFFF6C4C), Color(0xFFFFC44D)))
-    "MUSEUM" -> CategoryArtwork(Icons.Outlined.Museum, listOf(Color(0xFF6941C6), Color(0xFFB692F6)))
-    "PARENT_CHILD" -> CategoryArtwork(Icons.Outlined.AutoAwesome, listOf(Color(0xFFE43F5A), Color(0xFF8B5CF6)))
-    else -> CategoryArtwork(Icons.Outlined.AutoAwesome, listOf(UgorjBeBrand.ElectricViolet, UgorjBeBrand.Coral))
+    "PLAYHOUSE" -> CategoryArtwork(
+        Icons.Outlined.ChildCare,
+        listOf(UgorjBeBrand.Coral, UgorjBeBrand.Sun),
+    )
+    "WORKSHOP" -> CategoryArtwork(
+        Icons.Outlined.Palette,
+        listOf(UgorjBeBrand.Forest, UgorjBeBrand.Coral),
+    )
+    "MOVEMENT" -> CategoryArtwork(
+        Icons.Outlined.FitnessCenter,
+        listOf(UgorjBeBrand.ForestBright, Color(0xFF79B69C)),
+    )
+    "SWIMMING" -> CategoryArtwork(
+        Icons.Outlined.Pool,
+        listOf(Color(0xFF176B72), Color(0xFF7BC8C4)),
+    )
+    "SPORT" -> CategoryArtwork(
+        Icons.Outlined.SportsBasketball,
+        listOf(UgorjBeBrand.CoralDeep, UgorjBeBrand.Sun),
+    )
+    "MUSEUM" -> CategoryArtwork(
+        Icons.Outlined.Museum,
+        listOf(UgorjBeBrand.ForestDeep, Color(0xFF7C6842)),
+    )
+    "PARENT_CHILD" -> CategoryArtwork(
+        Icons.Outlined.AutoAwesome,
+        listOf(Color(0xFF8E4A3B), UgorjBeBrand.Coral, UgorjBeBrand.Sun),
+    )
+    else -> CategoryArtwork(
+        Icons.Outlined.AutoAwesome,
+        listOf(UgorjBeBrand.Forest, UgorjBeBrand.Coral),
+    )
 }
 
 @Composable
