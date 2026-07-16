@@ -2,15 +2,19 @@ package hu.ugorjbe.app.ui
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.animateColorAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -30,7 +34,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.Bolt
-import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Savings
 import androidx.compose.material.icons.outlined.Visibility
@@ -43,7 +46,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -52,7 +54,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -83,9 +84,13 @@ fun AuthScreen(viewModel: AuthViewModel) {
         val expanded = maxWidth >= 760.dp
         if (expanded) {
             Row(Modifier.fillMaxSize()) {
-                BrandCanvas(Modifier.weight(0.9f).fillMaxHeight())
+                BrandCanvas(Modifier.weight(0.96f).fillMaxHeight())
                 Box(
-                    Modifier.weight(1.1f).fillMaxHeight().statusBarsPadding().navigationBarsPadding(),
+                    Modifier
+                        .weight(1.04f)
+                        .fillMaxHeight()
+                        .statusBarsPadding()
+                        .navigationBarsPadding(),
                     contentAlignment = Alignment.Center,
                 ) {
                     AuthForm(state, viewModel, Modifier.padding(48.dp))
@@ -99,7 +104,7 @@ fun AuthScreen(viewModel: AuthViewModel) {
                     .navigationBarsPadding(),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                BrandCanvas(Modifier.fillMaxWidth().height(300.dp))
+                BrandCanvas(Modifier.fillMaxWidth().height(310.dp))
                 AuthForm(
                     state = state,
                     viewModel = viewModel,
@@ -121,34 +126,56 @@ private fun BrandCanvas(modifier: Modifier = Modifier) {
         Box(
             Modifier
                 .align(Alignment.TopEnd)
-                .size(108.dp)
+                .size(132.dp)
+                .clip(
+                    RoundedCornerShape(
+                        topStart = 52.dp,
+                        topEnd = 28.dp,
+                        bottomEnd = 58.dp,
+                        bottomStart = 34.dp,
+                    ),
+                )
+                .background(Color.White.copy(alpha = 0.09f)),
+        )
+        Box(
+            Modifier
+                .align(Alignment.BottomEnd)
+                .size(74.dp)
                 .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.12f)),
+                .background(UgorjBeBrand.Sun.copy(alpha = 0.92f)),
         )
         Box(
             Modifier
                 .align(Alignment.BottomStart)
-                .size(54.dp)
+                .size(38.dp)
                 .clip(CircleShape)
-                .background(UgorjBeBrand.Apricot.copy(alpha = 0.82f)),
+                .background(UgorjBeBrand.Coral),
         )
+
+        Row(
+            modifier = Modifier.align(Alignment.TopStart),
+            horizontalArrangement = Arrangement.spacedBy(UgorjBeSpacing.md),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            UgorjBeBrandMark(Modifier.size(48.dp), inverse = true)
+            Column {
+                Text(
+                    stringResource(R.string.app_name),
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleLarge,
+                )
+                Text(
+                    stringResource(R.string.discover_eyebrow),
+                    color = Color.White.copy(alpha = 0.68f),
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            }
+        }
+
         Column(
             modifier = Modifier.align(Alignment.CenterStart).widthIn(max = 520.dp),
             verticalArrangement = Arrangement.spacedBy(UgorjBeSpacing.lg),
         ) {
-            Surface(
-                shape = RoundedCornerShape(UgorjBeRadius.pill),
-                color = Color.White.copy(alpha = 0.14f),
-            ) {
-                Row(
-                    Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Icon(Icons.Outlined.Explore, null, tint = Color.White, modifier = Modifier.size(20.dp))
-                    Text(stringResource(R.string.app_name), color = Color.White, fontWeight = FontWeight.ExtraBold)
-                }
-            }
             Text(
                 stringResource(R.string.app_tagline),
                 style = MaterialTheme.typography.displaySmall,
@@ -157,12 +184,12 @@ private fun BrandCanvas(modifier: Modifier = Modifier) {
             Text(
                 stringResource(R.string.auth_brand_story),
                 style = MaterialTheme.typography.bodyLarge,
-                color = Color.White.copy(alpha = 0.88f),
+                color = Color.White.copy(alpha = 0.84f),
             )
             Row(horizontalArrangement = Arrangement.spacedBy(UgorjBeSpacing.sm)) {
                 BenefitBadge(Icons.Outlined.Bolt, stringResource(R.string.today))
-                BenefitBadge(Icons.Outlined.LocationOn, "Közel")
-                BenefitBadge(Icons.Outlined.Savings, "Kedvező")
+                BenefitBadge(Icons.Outlined.LocationOn, stringResource(R.string.brand_nearby))
+                BenefitBadge(Icons.Outlined.Savings, stringResource(R.string.brand_value))
             }
         }
     }
@@ -170,7 +197,11 @@ private fun BrandCanvas(modifier: Modifier = Modifier) {
 
 @Composable
 private fun BenefitBadge(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String) {
-    Surface(shape = RoundedCornerShape(UgorjBeRadius.pill), color = Color.White.copy(alpha = 0.14f)) {
+    Surface(
+        shape = RoundedCornerShape(UgorjBeRadius.pill),
+        color = Color.White.copy(alpha = 0.12f),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
+    ) {
         Row(
             Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -189,22 +220,31 @@ private fun AuthForm(state: AuthUiState, viewModel: AuthViewModel, modifier: Mod
         modifier = modifier.fillMaxWidth().widthIn(max = 520.dp),
         verticalArrangement = Arrangement.spacedBy(UgorjBeSpacing.lg),
     ) {
+        AuthModeSelector(state.mode, viewModel::toggleMode)
         Column(verticalArrangement = Arrangement.spacedBy(UgorjBeSpacing.xs)) {
             Text(
                 stringResource(if (state.mode == AuthMode.LOGIN) R.string.login_title else R.string.register_title),
                 style = MaterialTheme.typography.headlineLarge,
             )
             Text(
-                stringResource(if (state.mode == AuthMode.LOGIN) R.string.switch_to_register else R.string.switch_to_login),
+                stringResource(
+                    if (state.mode == AuthMode.LOGIN) {
+                        R.string.auth_welcome_back
+                    } else {
+                        R.string.auth_create_account
+                    },
+                ),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(UgorjBeRadius.hero),
             color = MaterialTheme.colorScheme.surfaceContainerLowest,
-            shadowElevation = 12.dp,
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            shadowElevation = 5.dp,
         ) {
             AnimatedContent(
                 targetState = state.mode,
@@ -284,31 +324,78 @@ private fun AuthForm(state: AuthUiState, viewModel: AuthViewModel, modifier: Mod
                         shape = RoundedCornerShape(UgorjBeRadius.medium),
                     ) {
                         if (state.submitting) {
-                            CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                            CircularProgressIndicator(
+                                Modifier.size(22.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                            )
                         } else {
                             Text(stringResource(if (mode == AuthMode.LOGIN) R.string.login else R.string.register))
                             Spacer(Modifier.weight(1f))
                             Icon(Icons.Outlined.ArrowForward, null)
                         }
                     }
-                    TextButton(onClick = viewModel::toggleMode, modifier = Modifier.align(Alignment.CenterHorizontally)) {
-                        Text(stringResource(if (mode == AuthMode.LOGIN) R.string.switch_to_register else R.string.switch_to_login))
-                    }
                 }
             }
         }
+
         if (BuildConfig.DEBUG) {
             Surface(
                 shape = RoundedCornerShape(UgorjBeRadius.medium),
-                color = MaterialTheme.colorScheme.primaryContainer,
+                color = MaterialTheme.colorScheme.secondaryContainer,
             ) {
                 Text(
                     stringResource(R.string.demo_hint),
                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun AuthModeSelector(mode: AuthMode, onToggle: () -> Unit) {
+    Surface(
+        shape = RoundedCornerShape(UgorjBeRadius.pill),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Row(Modifier.fillMaxWidth().padding(4.dp)) {
+            AuthModeTab(
+                selected = mode == AuthMode.LOGIN,
+                label = stringResource(R.string.login),
+                onClick = { if (mode != AuthMode.LOGIN) onToggle() },
+            )
+            AuthModeTab(
+                selected = mode == AuthMode.REGISTER,
+                label = stringResource(R.string.register),
+                onClick = { if (mode != AuthMode.REGISTER) onToggle() },
+            )
+        }
+    }
+}
+
+@Composable
+private fun RowScope.AuthModeTab(selected: Boolean, label: String, onClick: () -> Unit) {
+    val background by animateColorAsState(
+        if (selected) MaterialTheme.colorScheme.secondary else Color.Transparent,
+        label = "auth-tab-background",
+    )
+    val foreground by animateColorAsState(
+        if (selected) MaterialTheme.colorScheme.onSecondary else MaterialTheme.colorScheme.onSurfaceVariant,
+        label = "auth-tab-foreground",
+    )
+    Box(
+        modifier = Modifier
+            .weight(1f)
+            .clip(RoundedCornerShape(UgorjBeRadius.pill))
+            .background(background)
+            .clickable(onClick = onClick)
+            .padding(vertical = 11.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(label, style = MaterialTheme.typography.labelLarge, color = foreground)
     }
 }
