@@ -3,6 +3,7 @@ package hu.ugorjbe.app.ui
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -103,7 +104,9 @@ fun UgorjBeApp(sessionViewModel: SessionViewModel = hiltViewModel()) {
     val session by sessionViewModel.session.collectAsStateWithLifecycle()
     AnimatedContent(
         targetState = session,
-        transitionSpec = { fadeIn(tween(UgorjBeMotion.Standard)) togetherWith fadeOut(tween(UgorjBeMotion.Quick)) },
+        transitionSpec = {
+            fadeIn(tween(UgorjBeMotion.Standard)) togetherWith fadeOut(tween(UgorjBeMotion.Quick))
+        },
         contentKey = { it?.user?.id ?: "auth" },
         label = "session-gate",
     ) { currentSession ->
@@ -203,7 +206,11 @@ private fun Phase4DockItem(
         label = "dock-background",
     )
     val foreground by animateColorAsState(
-        targetValue = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+        targetValue = if (selected) {
+            MaterialTheme.colorScheme.onSecondaryContainer
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        },
         label = "dock-foreground",
     )
 
@@ -307,7 +314,7 @@ private fun CustomerNavHost(
             enterTransition = { fadeIn(tween(UgorjBeMotion.Standard)) },
             exitTransition = { fadeOut(tween(UgorjBeMotion.Quick)) },
         ) {
-            Phase3DiscoveryScreen(
+            Phase4DiscoveryScreen(
                 viewModel = hiltViewModel<DiscoveryViewModel>(),
                 onOffer = { navController.navigate("offer/$it") },
             )
@@ -316,7 +323,9 @@ private fun CustomerNavHost(
             route = "bookings",
             enterTransition = { fadeIn(tween(UgorjBeMotion.Standard)) },
             exitTransition = { fadeOut(tween(UgorjBeMotion.Quick)) },
-        ) { BookingsScreen(hiltViewModel<BookingsViewModel>()) }
+        ) {
+            BookingsScreen(hiltViewModel<BookingsViewModel>())
+        }
         composable(
             route = "favorites",
             enterTransition = { fadeIn(tween(UgorjBeMotion.Standard)) },
@@ -338,10 +347,12 @@ private fun CustomerNavHost(
         composable(
             route = "offer/{offerId}",
             enterTransition = {
-                fadeIn(tween(UgorjBeMotion.Standard)) + slideInHorizontally(tween(UgorjBeMotion.Standard)) { it / 7 }
+                fadeIn(tween(UgorjBeMotion.Standard)) +
+                    slideInHorizontally(tween(UgorjBeMotion.Standard)) { it / 7 }
             },
             exitTransition = {
-                fadeOut(tween(UgorjBeMotion.Quick)) + slideOutHorizontally(tween(UgorjBeMotion.Quick)) { it / 7 }
+                fadeOut(tween(UgorjBeMotion.Quick)) +
+                    slideOutHorizontally(tween(UgorjBeMotion.Quick)) { it / 7 }
             },
         ) {
             OfferDetailScreen(
@@ -354,10 +365,12 @@ private fun CustomerNavHost(
         composable(
             route = "provider/{providerId}",
             enterTransition = {
-                fadeIn(tween(UgorjBeMotion.Standard)) + slideInHorizontally(tween(UgorjBeMotion.Standard)) { it / 7 }
+                fadeIn(tween(UgorjBeMotion.Standard)) +
+                    slideInHorizontally(tween(UgorjBeMotion.Standard)) { it / 7 }
             },
             exitTransition = {
-                fadeOut(tween(UgorjBeMotion.Quick)) + slideOutHorizontally(tween(UgorjBeMotion.Quick)) { it / 7 }
+                fadeOut(tween(UgorjBeMotion.Quick)) +
+                    slideOutHorizontally(tween(UgorjBeMotion.Quick)) { it / 7 }
             },
         ) {
             ProviderScreen(
