@@ -32,4 +32,16 @@
     <string name="image_description">%1$s programképe</string>
     <string name="your_next_adventure">A KÖVETKEZŐ ÉLMÉNYED</string>
     <string name="saved_for_later">FÉLRETETTED KÉSŐBBRE</string>
+    <string name="brand_nearby">Közel</string>
+    <string name="brand_value">Jó áron</string>
+    <string name="auth_welcome_back">Folytasd onnan, ahol abbahagytad.</string>
+    <string name="auth_create_account">Pár adat, és már keresheted is a következő programot.</string>
+    <string name="map_offer_marker_description">%1$s, %2$s</string>
+    <string name="selected_offer_action">Részletek</string>
+    <string name="map_result_summary">%1$d program ezen a területen</string>
+    <string name="list_editorial_title">Mai programok</string>
+    <string name="list_editorial_subtitle">Válogass gyorsan időpont, ár és szabad hely alapján.</string>
+    <string name="filters_short">Szűrés</string>
+    <string name="availability_short">%1$d hely</string>
+    <string name="open_offer">Program megnyitása</string>
 </resources>

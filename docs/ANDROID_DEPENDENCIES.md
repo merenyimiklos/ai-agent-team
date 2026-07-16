@@ -1,53 +1,69 @@
-# Android dependency decisions
+# Android dependency decisions — Phase 4
 
-Phase 3 keeps the native Kotlin/Jetpack Compose architecture and adds only dependencies that solve a concrete production requirement.
+Phase 4 remains Kotlin/Jetpack Compose and deliberately adds **no new runtime UI dependency**. The reference-led polish is implemented with the already verified native stack and custom UgorjBe components.
 
-| Dependency/tool | Version | Purpose | Decision |
+| Dependency/tool | Version | Purpose | Phase 4 decision |
 | --- | ---: | --- | --- |
-| Android Gradle Plugin | 9.2.1 | Android build, lint, packaging, R8 and resource shrinking | Existing modern build baseline retained. |
-| Kotlin plugins/BOM | 2.3.21 | Kotlin compiler, Compose compiler and metadata alignment | Selected as the compatible line for AGP 9, Hilt 2.60.1 and Coil 3.4.0. |
-| Dagger/Hilt | 2.60.1 | Dependency injection and generated Android components | Upgraded for AGP 9/Kotlin 2.3 compatibility. |
-| Compose BOM | 2026.02.01 | Compose version alignment | Existing baseline retained. |
-| Maps Compose / Utils | 6.12.0 | Map, marker and clustering UI | Existing map stack retained. |
-| Coil Compose | 3.4.0 | Constraint-aware remote image loading | Added. `AsyncImage` is used in cards/details; subcomposition image APIs are avoided in lazy lists. |
-| Coil network OkHttp | 3.4.0 | HTTPS image fetching through OkHttp | Added with deterministic category fallback when loading fails. |
-| Airbnb Lottie Compose | 6.7.1 | Small bundled vector state animations | Added for booking success, empty and loading states with native fallback. |
-| Baseline Profile Gradle plugin | 1.4.1 | Generate/package startup and critical-journey profiles | Added to the app and a dedicated test module. |
-| Benchmark Macro JUnit4 | 1.4.1 | Release-like startup/frame measurement | Added only to `baselineprofile`. |
-| ProfileInstaller | 1.4.1 | Install bundled profile for local/sideloaded builds | Added to the app. |
-| AndroidX Test Ext JUnit | 1.2.1 | Instrumented benchmark runner support | Test-module only. |
-| UI Automator | 2.3.0 | Drive profile/benchmark journeys | Test-module only. |
+| Android Gradle Plugin | 9.2.1 | build, lint, packaging, R8 and resource shrinking | retained |
+| Kotlin plugins/BOM | 2.3.21 | compiler, Compose compiler and metadata alignment | retained |
+| Dagger/Hilt | 2.60.1 | dependency injection | retained |
+| Compose BOM | 2026.02.01 | Compose version alignment | retained; custom components use official Compose APIs |
+| Maps Compose / Utils | 6.12.0 | map, marker content and clustering | retained; Phase 4 adds original price-marker content without a new map library |
+| Coil Compose / network OkHttp | 3.4.0 | cached remote image loading | retained; category fallback redesigned |
+| Airbnb Lottie Compose | 6.7.1 | bounded state animation | retained; no new animation assets |
+| Baseline Profile plugin | 1.4.1 | profile generation/package integration | retained |
+| Benchmark Macro JUnit4 | 1.4.1 | startup and frame measurement | retained; Phase 4 adds critical-journey tests |
+| ProfileInstaller | 1.4.1 | profile installation | retained |
+| AndroidX Test Ext JUnit | 1.2.1 | instrumented benchmark runner | retained |
+| UI Automator | 2.3.0 | real-device benchmark journey automation | retained |
 
-## Compatibility decision
+## Phase 4 implementation choices
 
-The first implementation attempt exposed two real metadata incompatibilities in CI:
+- custom search/filter chrome uses Compose foundation and Material 3;
+- custom navigation uses Compose interaction sources, animation primitives and semantic tags;
+- custom map price markers use Maps Compose clustering content slots;
+- editorial typography uses Android system serif/sans fallbacks, not a bundled font;
+- press feedback uses Compose springs, not an interaction library;
+- filter UI uses Material modal bottom sheet;
+- no screenshot, design-system, shimmer or marker dependency was added.
 
-1. Coil 3.5.0 pulled Kotlin 2.4 metadata while the project compiler was older.
-2. Kotlin 2.4 then exceeded the metadata version supported by the previous Hilt compiler.
+## Verified compatibility baseline
 
-The verified build therefore uses Kotlin 2.3.21, Hilt 2.60.1 and Coil 3.4.0 as one compatible toolchain. Versions are pinned rather than floated.
+The pinned compatibility set remains:
+
+- Kotlin 2.3.21;
+- Hilt 2.60.1;
+- Coil 3.4.0;
+- AGP 9.2.1;
+- Java/JVM 17.
+
+Versions remain pinned rather than dynamically floated.
 
 ## Libraries deliberately not added
 
-- no second UI or navigation framework;
 - no Flutter or WebView runtime;
-- no shimmer dependency: skeleton motion uses Compose primitives;
-- no generic animation collection: only three original local Lottie files are bundled;
-- no image carousel or social-feed framework;
-- no proprietary font package;
-- no QR dependency because the current API guarantees a readable booking code and QR payload, not a signed/scannable QR-image contract.
+- no second navigation/UI framework;
+- no proprietary mobility design system;
+- no generic animation collection;
+- no shimmer library;
+- no social-feed, carousel or autoplay framework;
+- no proprietary font;
+- no copied marker/icon package;
+- no QR renderer until the backend defines a signed/scannable QR-image contract.
 
 ## Release constraints
 
-- release builds use an HTTPS placeholder endpoint and never inherit emulator cleartext configuration;
-- R8/minification and resource shrinking are enabled and compile in CI;
-- API keys and signing material remain outside source control;
-- debug HTTP logging is disabled outside debug builds;
-- benchmark/profile code is isolated in an Android test module;
-- actual benchmark numbers and profile generation require a configured emulator/device and are not fabricated from compilation-only CI.
+- release uses an HTTPS placeholder endpoint and never inherits emulator cleartext configuration;
+- R8/minification and resource shrinking remain enabled;
+- Maps keys, API secrets and signing material remain local;
+- debug HTTP logging remains disabled outside debug builds;
+- benchmark/profile code stays isolated in the Android test module;
+- actual benchmark numbers and Baseline Profile generation require a configured emulator/device and must not be inferred from CI compilation.
 
-## Primary reference basis
+## Reference basis
 
-- Coil Compose documentation recommends `AsyncImage` for most cases and warns that subcomposition is unsuitable for some performance-critical lazy-list cases.
-- Airbnb's official Lottie Android project provides the Compose integration.
-- Android's official Baseline Profile documentation defines the test module, plugin, app dependency and generation workflow.
+- official Android/Compose APIs for touch feedback, semantics, adaptive layout and animation;
+- official Maps Compose clustering/content APIs;
+- Coil `AsyncImage` for constraint-aware list/detail media;
+- official Lottie Compose integration for the existing bounded animations;
+- official Android Baseline Profile/Macrobenchmark workflow.

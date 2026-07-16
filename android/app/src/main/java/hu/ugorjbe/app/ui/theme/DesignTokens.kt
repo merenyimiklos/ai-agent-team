@@ -22,21 +22,21 @@ object UgorjBeSpacing {
 object UgorjBeRadius {
     val small = 10.dp
     val medium = 16.dp
-    val large = 24.dp
-    val hero = 32.dp
+    val large = 22.dp
+    val hero = 28.dp
     val pill = 100.dp
 }
 
 object UgorjBeMotion {
     const val Instant = 90
-    const val Quick = 160
-    const val Standard = 260
-    const val Expressive = 420
-    val EnterEasing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
+    const val Quick = 150
+    const val Standard = 240
+    const val Expressive = 380
+    val EnterEasing = CubicBezierEasing(0.16f, 1f, 0.3f, 1f)
     val ExitEasing = CubicBezierEasing(0.4f, 0f, 1f, 1f)
 
     fun <T> tactileSpring() = spring<T>(
-        dampingRatio = Spring.DampingRatioMediumBouncy,
+        dampingRatio = 0.82f,
         stiffness = Spring.StiffnessMedium,
     )
 
@@ -47,21 +47,29 @@ object UgorjBeMotion {
 }
 
 object UgorjBeBrand {
+    val Forest = Color(0xFF173F35)
+    val ForestBright = Color(0xFF2B6958)
+    val ForestDeep = Color(0xFF0C2B24)
+    val Coral = Color(0xFFEB705B)
+    val CoralDeep = Color(0xFFC95745)
+    val Sun = Color(0xFFF4BD58)
+    val Sage = Color(0xFFDCE9D9)
+    val Cream = Color(0xFFF6F2E9)
+    val Paper = Color(0xFFFFFDF7)
+    val Mist = Color(0xFFE8EFEA)
+    val Ink = Color(0xFF173F35)
     val ElectricViolet = Color(0xFF6547F5)
-    val DeepViolet = Color(0xFF3820A8)
-    val Coral = Color(0xFFFF5D73)
-    val Apricot = Color(0xFFFFB86B)
-    val Aqua = Color(0xFF2BC4B6)
-    val Ink = Color(0xFF17151F)
-    val Paper = Color(0xFFFFFBFF)
 
     val HeroGradient = Brush.linearGradient(
-        listOf(ElectricViolet, Color(0xFF8B5CF6), Coral),
+        listOf(ForestDeep, Forest, ForestBright),
     )
     val WarmGradient = Brush.linearGradient(
-        listOf(Coral, Apricot),
+        listOf(Coral, Sun),
     )
     val CoolGradient = Brush.linearGradient(
-        listOf(DeepViolet, ElectricViolet, Aqua),
+        listOf(Forest, ForestBright, Color(0xFF79B69C)),
+    )
+    val CreamGradient = Brush.linearGradient(
+        listOf(Paper, Cream, Sage.copy(alpha = 0.82f)),
     )
 }

@@ -1,103 +1,131 @@
-# UgorjBe motion specification — Phase 3
+# UgorjBe motion specification — Phase 4
 
 ## Purpose
 
-Motion communicates continuity, hierarchy, state change and confirmed success. It must not decorate every element, hide server-authoritative changes or delay a customer from booking.
+Motion communicates touch, hierarchy, continuity and confirmed state. It must not imitate a reference product, decorate every element, hide server-authoritative changes or delay booking.
 
-Implementation tokens live in `DesignTokens.kt`.
+Implementation tokens live in `android/app/src/main/java/hu/ugorjbe/app/ui/theme/DesignTokens.kt`.
 
 ## Timing
 
-- **Instant — 90 ms:** pressed-state and tiny indicator response.
-- **Quick — 160 ms:** content exit, icon swap, dismiss.
-- **Standard — 260 ms:** view switch, navigation fade/slide, form state change.
-- **Expressive — 420 ms:** skeleton pulse and a small number of brand moments.
+- **Instant — 90 ms:** tiny indicator or immediate pressed response.
+- **Quick — 150 ms:** content exit, dismiss and icon replacement.
+- **Standard — 240 ms:** navigation fade, Map/List change and authentication mode change.
+- **Expressive — 380 ms:** skeleton pulse and a small number of bounded brand moments.
 
-Preferred easing:
+Easing:
 
-- enter: emphasized deceleration `(0.2, 0, 0, 1)`;
-- exit: accelerated `(0.4, 0, 1, 1)`;
-- tactile selection: medium-bouncy spring;
-- final layout settlement: no-bounce medium-low spring.
+- enter: `(0.16, 1, 0.3, 1)` emphasized deceleration;
+- exit: `(0.4, 0, 1, 1)` accelerated exit;
+- touch: medium spring with low bounce;
+- layout settlement: no-bounce medium-low spring.
 
 ## Navigation
 
-- authentication/session gate: crossfade, 260/160 ms;
-- top-level destinations: fade, preserving nested state;
-- detail routes: 20% horizontal slide plus fade;
-- system/predictive Back remains authoritative; transitions do not replace platform back behavior.
+- authentication/session gate: Standard fade in, Quick fade out;
+- top-level destinations: short fade while Navigation Compose preserves state;
+- detail/provider routes: shallow horizontal movement plus fade;
+- system and predictive Back remain authoritative;
+- the custom navigation dock scales to 94% only while pressed, then settles by spring.
 
-## Explore
+The navigation treatment is original UgorjBe motion and does not reproduce another product's tab animation.
 
-### Map/List
+## Explore Map/List
 
-The same result state transitions between two presentations using a subtle 0.985–1.015 scale and fade. No new network request is caused solely by switching presentation.
+The same `ExploreUiState` moves between Map and List with a subtle 0.99–1.01 scale and fade. Switching presentation alone must not trigger a network request.
 
 ### Map
 
-- never animate layout continuously during camera movement;
-- cluster activation performs the map camera animation only;
-- marker selection changes size/color and reveals the selected preview;
-- stale results retain marker positions and show a banner;
-- search-area progress stays in the action surface.
+- camera movement never drives a decorative animation loop;
+- normal price markers are static forest pills;
+- selection changes the marker to coral, increases its size and reveals the event preview;
+- clusters animate only through the Google Maps camera action after activation;
+- current markers stay visible while a refresh is in flight;
+- search-area progress is contained inside its action;
+- selected-event preview uses platform layout motion only;
+- closing the preview is immediate and does not move the camera.
 
 ### List
 
+- card press uses a subtle 0.985 scale spring;
 - skeletons pulse between 42% and 78% alpha using the Expressive duration;
 - stable keys preserve item identity;
-- result refresh retains content rather than replacing it with a full-screen spinner.
+- refresh keeps current content and adds progress/stale feedback rather than replacing the screen;
+- no Lottie or infinite animation is rendered inside a scrolling card.
 
 ## Authentication
 
-Login/register uses crossfade and size continuity. Entered values remain in ViewModel state. The primary action keeps a stable 56 dp container while swapping its label for progress.
+Login and registration use crossfade and size continuity. Entered values remain in ViewModel state. The primary action keeps a stable 56 dp container while its content changes to progress.
+
+The brand canvas contains only static abstract shapes. It does not autoplay decorative motion.
 
 ## Booking
 
-- review sheet follows Material modal-sheet motion;
-- the submit button is disabled while the request is in flight;
-- confirmed booking triggers one subtle haptic event;
+- review uses Material modal-sheet motion;
+- submit remains disabled while the request is in flight;
+- confirmed booking emits one subtle haptic event;
 - success Lottie runs once and stops;
-- booking code and actions are visible independently of animation progress.
-
-## Favorites and cancellation
-
-Favorite icon state may animate visually but the stored state remains the server result. Failure restores or retains authoritative state and shows an error. Cancellation is preceded by confirmation and uses no celebratory motion.
+- booking code and actions remain visible independently of animation progress;
+- cancellation uses confirmation and no celebratory motion;
+- capacity, expiry and server errors replace decoration with direct recovery information.
 
 ## Lottie
 
-Bundled animations:
+Bundled animations are unchanged from Phase 3:
 
 - `booking_success.json`: finite success pulse;
 - `empty_discovery.json`: low-priority looping empty-state orbit;
-- `brand_loading.json`: small loading/brand pulse.
+- `brand_loading.json`: compact loading pulse.
 
 Rules:
 
 - success never loops;
-- looping animations are shown only while their state surface is on screen;
+- looping animations exist only while their state surface is visible;
 - no embedded raster images;
-- native icon/surface fallback always exists;
+- native fallback always exists;
 - animation is not required to identify the state or action;
-- when the system animator scale is zero, the final/static state is displayed.
+- when platform animator scale is zero, the final/static state is shown.
 
 ## Reduced motion
 
-`Phase3Lottie` reads the platform animator-duration scale and switches to the final frame when disabled. Compose transitions are deliberately short and low-distance. Manual verification must include:
+`Phase3Lottie` checks the platform animator-duration scale. Compose movement is short and low-distance. Manual verification must include:
 
 1. Developer options → Animator duration scale Off;
 2. authentication mode change;
-3. Map/List change;
-4. detail navigation;
-5. booking success;
-6. empty discovery/favorites.
+3. navigation dock selection;
+4. Map/List change;
+5. marker selection and preview dismissal;
+6. detail navigation;
+7. booking success;
+8. loading and empty states.
 
-No critical content may disappear when animation is disabled.
+No critical content may disappear or become unreachable with animations disabled.
+
+## Haptics
+
+Haptics are meaningful and rare:
+
+- booking confirmation: one confirmation event;
+- no haptic on scrolling, map camera motion, passive loading or every navigation tap;
+- no repeated haptic while a request is in flight.
 
 ## Performance guardrails
 
 - no blur or continuously animated shadow;
-- no Lottie in scrolling cards;
-- no subcomposition-based image loader in lazy lists;
+- no camera-driven recomposition of the complete result list;
+- no continuously animated marker while the camera moves;
+- no Lottie in lazy-list cards;
+- no subcomposition image loading in performance-critical lists;
 - no infinite animation except visible loading/empty state;
-- no camera-driven recomposition of the complete list;
-- measure startup, list scroll, Map/List switch and detail opening in release-like builds.
+- selected marker content remains compact;
+- measure startup, list scroll, Map/List switch and offer-detail opening in release-like builds.
+
+## Benchmark journeys
+
+`android/baselineprofile/.../CriticalJourneyBenchmark.kt` defines:
+
+- `exploreListScroll`;
+- `mapListSwitch`;
+- `offerDetailOpening`.
+
+The benchmark uses the real local API and the development demo customer. Numeric claims require an actual configured emulator/device, API level, build variant and compilation mode; compilation-only CI is not a performance measurement.
