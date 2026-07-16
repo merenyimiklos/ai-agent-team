@@ -1,177 +1,222 @@
-# UgorjBe mobile design system — Phase 3
+# UgorjBe mobile design system — Phase 4
 
 ## Product expression
 
-The Android customer app is a youthful, image-led local-experience product that remains trustworthy for parents and families. It should feel energetic when inviting discovery and calm when presenting booking-critical information.
+Phase 4 is an original **editorial mobility** system: the operational clarity of a mature map-based product combined with the warmth and visual hierarchy of a local experience marketplace.
 
-The design is original. It does not copy TikTok, Instagram, Munch, Airbnb, Google Maps or the administration web. The administration web is used only as evidence that UgorjBe can support confident typography, warm surfaces and a deliberate brand system.
+It must feel:
+
+- confident and immediately understandable;
+- youthful without becoming childish;
+- image-led and fast to scan;
+- calm and trustworthy during booking;
+- visually related to the administration web;
+- recognisably UgorjBe rather than a clone of a reference app.
 
 ## Experience principles
 
-1. **Show the experience before explaining it.** Real offer/provider imagery gets priority; category artwork is a deterministic first-class fallback.
-2. **One scan, one decision.** Cards expose start time, title, provider, price, discount and remaining capacity without a wall of chips.
-3. **Map and list are one task.** Search, filters, loaded results, selection and viewport state remain shared.
-4. **Motion explains continuity.** Transitions communicate view changes, selection and success but never delay booking or obscure server updates.
-5. **The API remains authoritative.** Attractive optimistic feedback never invents capacity, price, booking success or favorite state.
-6. **Failure still looks intentional.** Missing images, Maps key, Lottie parsing, denied location and offline backend each have usable fallback content.
+1. **The map is a working surface.** Search, filters, price markers and selected-event information support a concrete decision.
+2. **One scan, one decision.** Time, title, provider, price, discount and capacity dominate cards.
+3. **Map and List are one Explore state.** Results, query, filters, selected offer and viewport remain shared.
+4. **Images enrich but never gate the journey.** Every image surface has deterministic category artwork.
+5. **Motion communicates continuity and touch.** It never delays booking or hides server-authoritative updates.
+6. **Failure remains intentional.** Missing Maps key, denied location, failed image, stale response, offline backend and Lottie failure all retain a usable route.
+7. **The API remains authoritative.** Capacity, price, expiry, favorite state and booking result are never invented by the UI.
 
-## Tokens
-
-Implementation sources:
+## Implementation sources
 
 - `android/app/src/main/java/hu/ugorjbe/app/ui/theme/Theme.kt`
 - `android/app/src/main/java/hu/ugorjbe/app/ui/theme/DesignTokens.kt`
+- `android/app/src/main/java/hu/ugorjbe/app/ui/Components.kt`
+- `android/app/src/main/java/hu/ugorjbe/app/ui/ExperienceMedia.kt`
+- `android/app/src/main/java/hu/ugorjbe/app/ui/Phase4DiscoveryScreen.kt`
 
-### Color
+## Color
 
-The primary family uses electric violet rather than the previous mockup pink or a mobility-brand green. Coral signals urgency and discount. Aqua is reserved for positive availability and supporting state.
+Core brand tokens:
 
-All UI uses semantic `MaterialTheme.colorScheme` roles. Literal colors are allowed only inside the named brand/category token definitions and map-marker content.
+- Forest `#173F35`: trusted operational controls and navigation;
+- Forest Deep `#0C2B24`: hero depth and dark brand surfaces;
+- Coral `#EB705B`: primary action, selected marker and discount emphasis;
+- Sun `#F4BD58`: scarce warm positive accent;
+- Cream `#F6F2E9`: application background;
+- Paper `#FFFDF7`: card and elevated content surface;
+- Sage `#DCE9D9`: calm selected/supporting state.
 
-Both light and dark schemes define:
+All screen code should prefer semantic `MaterialTheme.colorScheme` roles. Literal colors are limited to named brand/category artwork and map-marker content.
 
-- primary, secondary and tertiary role families;
-- five surface-container levels;
-- outline and outline-variant roles;
-- error container roles;
-- scrim behavior.
+No state is conveyed by color alone. Selection, capacity, error and status also use text, icon or shape.
 
-No state is communicated by color alone. Text, icon, shape or status copy accompanies state color.
+## Typography
 
-### Typography
+The app uses only distributable Android system typefaces; no font file is committed.
 
-The app uses the distributable Android sans-serif fallback with deliberate weight and spacing. No font file is bundled.
+- display/headline: Android serif fallback for editorial warmth;
+- title/body/label: Android sans-serif fallback for operational readability;
+- price, capacity and booking code: heavy sans hierarchy;
+- critical copy must remain readable at 200% font scale.
 
-- display: bold campaign/brand moments only;
-- headline: screen and offer hierarchy;
-- title: card and section hierarchy;
-- body: descriptions and operational information;
-- label: metadata, filters and compact controls;
-- numeric emphasis: price, booking code and capacity use bold title/display styles.
+Serif is not used for metadata, controls or dense numeric information.
 
-Critical copy must remain readable at 200% font scale. Fixed-height containers may be used only for controls whose labels remain single-line and accessible.
+## Spacing and shape
 
-### Spacing and shapes
-
-Spacing follows the named 2/4/8/12/16/20/24/32/48 dp scale in `UgorjBeSpacing`.
+Spacing uses the named 2/4/8/12/16/20/24/32/48 dp scale.
 
 Shape roles:
 
-- small 10–12 dp: small controls and supporting surfaces;
-- medium 16–18 dp: fields, buttons and metadata panels;
-- large 24–26 dp: cards, sheets and banners;
-- hero 32–34 dp: authentication, large account and success surfaces;
-- pill: filters, statuses and view switches.
+- 10 dp: compact supporting controls;
+- 16 dp: fields and primary controls;
+- 22 dp: cards, panels and sheets;
+- 28 dp: hero and navigation surfaces;
+- pill: real badges, filters, markers and presentation switches only.
 
-### Elevation
+The Phase 4 brand mark uses a deliberately asymmetric rounded silhouette and the letter `U`; it is original to UgorjBe and not based on a reference logo.
 
-Elevation is used for task hierarchy, not decoration:
+## Elevation
 
-- floating search, view switch and selected map preview: 7–12 dp;
-- standard content card: 0–4 dp with tonal separation;
-- persistent booking/navigation surfaces: 12–14 dp;
-- nested information surfaces: tonal color, normally no shadow.
+Elevation represents task hierarchy:
+
+- floating search, selected map preview and view switch: 7–10 dp;
+- content card: 2–4 dp plus outline separation;
+- persistent navigation and booking surfaces: 10–14 dp;
+- nested information surfaces: tonal fill, usually no shadow.
+
+No continuously animated shadow or blur is allowed.
 
 ## Core components
 
+### Brand mark
+
+`UgorjBeBrandMark` is a compact asymmetric coral/forest mark. It appears in authentication, expanded navigation and fallback surfaces. It is not used as decorative wallpaper.
+
 ### Experience image
 
-`ExperienceImage` uses Coil `AsyncImage` and the shared app image loader. The loader supplies memory/disk behavior through Coil defaults and requests the size produced by Compose constraints.
+`ExperienceImage` uses Coil `AsyncImage` and keeps category artwork rendered behind the request.
 
 Behavior:
 
-- valid URL: crop to the component ratio;
-- loading: category artwork remains behind the request;
-- missing or failed URL: deterministic category gradient and icon;
-- list cards avoid subcomposition-heavy image APIs;
-- informative images use the offer/provider name as content description.
+- valid URL: cropped to the component constraints;
+- loading: category artwork stays visible;
+- missing/failed URL: deterministic category gradient and Material functional icon;
+- no remote image is required for discovery, detail or booking;
+- list cards avoid subcomposition-heavy image APIs.
 
 ### Offer card
 
-An offer card contains:
+Phase 4 offer cards contain:
 
-1. 176 dp image area;
-2. category label and discount status over the image;
-3. two-line maximum title;
-4. provider;
-5. start time, location and optional distance;
-6. original/discounted price;
-7. remaining-capacity status.
+1. 188 dp image/fallback area;
+2. forest category and coral discount status;
+3. start time over the image;
+4. provider and maximum two-line title;
+5. city and optional distance;
+6. original and discounted price;
+7. remaining capacity and one directional action symbol.
 
-The whole card is a single accessible action. Internal metadata is not separately clickable.
+The whole card is one accessible action. Internal metadata is not separately clickable.
 
 ### Search and filters
 
-Search is a high-elevation rounded surface. It contains a search action and a separately labeled filter action. Active filter count is visible as text/number, not color alone.
+Search is a compact floating surface with:
 
-Compact filters use a modal bottom sheet. Draft state is isolated from committed state until Apply. Clear restores defaults while preserving the search query.
+- one leading search symbol;
+- editable query;
+- optional clear action;
+- a separate forest filter control;
+- a visible active-filter count.
+
+Filters use a modal bottom sheet. Draft state is isolated until Apply. Clear restores defaults while preserving the current search query.
+
+### Map markers
+
+- normal offer: forest price pill with white contrast border;
+- selected offer: coral price pill with increased size/elevation;
+- cluster: forest circular count marker;
+- marker content uses compact price text, not a copied vehicle/brand symbol;
+- no decorative animation occurs while the camera moves.
+
+### Selected map preview
+
+Compact layouts use an image-led preview with provider, title, time, remaining places, price, dismiss and one details action. Expanded layouts use a controlled side panel.
 
 ### Navigation
 
-Compact windows retain all four labeled top-level destinations in a rounded floating dock:
+Compact windows retain all four labeled top-level destinations in a tactile floating dock:
 
 - Explore;
 - Bookings;
 - Favorites;
 - Profile.
 
-Medium/expanded windows use a rail. Map and List remain presentations of Explore and use a contextual floating switch.
+Selected state combines background, icon container, icon and label. Medium/expanded layouts use a forest rail. Map and List remain two presentations inside Explore.
 
-### State surfaces
+## State surfaces
 
-- initial list loading: geometry-matched skeleton cards;
-- compact brand/loading moment: small bundled Lottie with native fallback;
-- empty discovery/favorites/bookings: concise copy plus Lottie/native fallback;
-- stale data: previous content remains with a retry banner;
-- no data + failure: full explanatory error surface;
-- API contract failure: distinct non-network copy and debug detail;
-- missing Maps key: list remains accessible;
-- denied location: Budapest fallback remains usable.
+- initial list loading: geometry-matched card skeletons;
+- map refresh: compact progress surface while existing markers remain;
+- empty discovery/favorites/bookings: concise copy plus original Lottie/native fallback;
+- stale results: existing content plus retry banner;
+- contract failure: distinct non-network message;
+- missing Maps key: complete List fallback;
+- denied location: Budapest remains usable;
+- failed image: category artwork;
+- failed Lottie: native icon/surface fallback.
 
 ## Screen acceptance criteria
 
 ### Authentication
 
-- brand-led first impression;
-- login/register transition does not reset entered values;
-- password visibility and keyboard actions work;
-- loading/error state does not change button geometry;
-- demo credentials appear only in debug.
+- brand-led first impression in forest/cream/coral;
+- login/register values survive mode transition;
+- password visibility and IME actions work;
+- primary button geometry remains stable while loading;
+- demo credentials remain debug-only;
+- compact and expanded layouts remain usable at 200% text.
 
-### Explore Map/List
+### Explore Map
 
-- real API results are used;
-- custom cluster/item visuals have contrast borders;
-- result markers remain while refreshing;
-- selected preview is image-led and dismissible;
-- Map/List switch preserves filters, selection and loaded results;
-- list uses stable keys and matching skeletons;
-- attribution and navigation areas remain unobstructed.
+- real API results appear as original price markers/clusters;
+- map remains edge-to-edge and Google attribution is unobstructed;
+- search/filter chrome does not dominate the canvas;
+- selected preview is image-led, dismissible and accessible;
+- current markers remain visible during refresh;
+- stale, empty, permission and key-error states remain actionable;
+- Map/List switch preserves state and does not trigger a request by itself.
 
-### Offer and booking
+### Explore List
 
-- image/fallback hero, title, time, location, provider, age, accessibility, pricing and capacity are immediately readable;
-- booking CTA stays available without covering content;
-- review sheet shows quantity, unit price, total, cancellation and pay-on-arrival disclosure;
-- duplicate submit is prevented;
-- success animation is finite and booking code stays selectable/copyable;
-- expired, closed and capacity-changed states remain server-authoritative.
+- editorial forest header creates product identity;
+- card scan order is image → time → title → provider → price/capacity;
+- chip walls are avoided;
+- stable keys preserve item identity;
+- scroll state remains owned by Compose/navigation state;
+- skeleton geometry matches the final card;
+- the list remains deliberate when all images fail.
 
-### Bookings, favorites, provider and profile
+### Offer, provider and booking
 
-- every route uses the same typography, shapes, image and state system;
-- empty states are responsive;
-- local API data is debug-only;
-- logout and cancellation remain explicit actions;
-- contact and accessibility information remain readable at large font scale.
+- hero image/fallback, title, time, location, provider, pricing and capacity are immediately readable;
+- the booking CTA remains persistent without obscuring content;
+- review shows quantity, unit price, total, cancellation and pay-on-arrival disclosure;
+- duplicate submission is disabled while in flight;
+- capacity/expiry errors remain server-authoritative;
+- success Lottie is finite and the booking code remains visible without animation;
+- provider contact/accessibility information remains readable at large text sizes.
+
+### Bookings, favorites and profile
+
+- all routes inherit the Phase 4 theme, media fallback, typography and navigation;
+- populated and empty states use the same visual generation;
+- cancellation and logout remain explicit;
+- local backend details remain debug-only.
 
 ## Accessibility
 
 - minimum interactive target: 48 dp;
-- meaningful icons have localized labels;
-- decorative images/icons have null descriptions;
-- selected navigation state is conveyed by icon, indicator and label;
-- critical status is conveyed by text;
-- light/dark contrast is reviewed over map/image surfaces;
-- system-disabled animation leaves final state visible;
-- core actions remain usable with Lottie and remote images unavailable.
+- meaningful icons use localized labels;
+- decorative imagery/icons use null descriptions;
+- selected navigation state is conveyed by indicator, icon and label;
+- status and capacity use readable text;
+- light/dark contrast is reviewed over image and map surfaces;
+- system-disabled animation leaves final/static content visible;
+- core actions remain usable when images, Maps and Lottie are unavailable.
