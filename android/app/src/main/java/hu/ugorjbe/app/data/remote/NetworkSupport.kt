@@ -1,21 +1,23 @@
 package hu.ugorjbe.app.data.remote
 
 import com.squareup.moshi.JsonAdapter
+import com.squareup.moshi.JsonDataException
+import com.squareup.moshi.JsonEncodingException
 import com.squareup.moshi.JsonReader
 import com.squareup.moshi.JsonWriter
 import com.squareup.moshi.Moshi
 import hu.ugorjbe.app.data.session.SessionStore
 import hu.ugorjbe.app.domain.ApiError
 import hu.ugorjbe.app.domain.ApiResult
+import java.io.IOException
+import java.math.BigDecimal
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 import okhttp3.Interceptor
 import okhttp3.Response
 import retrofit2.HttpException
-import java.io.IOException
-import java.math.BigDecimal
-import javax.inject.Inject
-import javax.inject.Singleton
 
 class BigDecimalJsonAdapter : JsonAdapter<BigDecimal>() {
     override fun fromJson(reader: JsonReader): BigDecimal? =
@@ -86,9 +88,32 @@ class ApiCallRunner @Inject constructor(
         ApiResult.Failure(mapped)
     } catch (exception: CancellationException) {
         throw exception
+    } catch (exception: JsonDataException) {
+        ApiResult.Failure(
+            ApiError(
+                kind = ApiError.Kind.CONTRACT,
+                code = "API_CONTRACT_INVALID",
+                detail = exception.message,
+                retryable = false,
+            ),
+        )
+    } catch (exception: JsonEncodingException) {
+        ApiResult.Failure(
+            ApiError(
+                kind = ApiError.Kind.CONTRACT,
+                code = "API_JSON_INVALID",
+                detail = exception.message,
+                retryable = false,
+            ),
+        )
     } catch (_: IOException) {
         ApiResult.Failure(ApiError(ApiError.Kind.NETWORK, retryable = true))
-    } catch (_: Exception) {
-        ApiResult.Failure(ApiError(ApiError.Kind.UNKNOWN))
+    } catch (exception: Exception) {
+        ApiResult.Failure(
+            ApiError(
+                kind = ApiError.Kind.UNKNOWN,
+                detail = exception.message,
+            ),
+        )
     }
 }

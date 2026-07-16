@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="error_contract">A szolgáltatás válasza megváltozott. Frissítsd az alkalmazást, vagy jelezd a hibát.</string>
+    <string name="discover_eyebrow">MAI LEHETŐSÉGEK</string>
+    <string name="discover_title">Mihez lenne kedvetek?</string>
+    <string name="discover_subtitle">Frissen felszabadult helyek, amiket még ma lefoglalhatsz.</string>
+    <string name="results_count">%1$d élmény</string>
+    <string name="empty_discovery_title">Itt most csend van</string>
+    <string name="empty_discovery_body">Mozgasd arrébb a térképet, vagy lazíts a szűrőkön — a következő élmény lehet, hogy csak egy utcával odébb vár.</string>
+    <string name="empty_favorites_title">Még nincs elmentett kedvenced</string>
+    <string name="empty_favorites_body">A szívecskével tedd félre azokat a programokat, amelyekhez később visszatérnél.</string>
+    <string name="empty_bookings_title">Jöhet az első közös program</string>
+    <string name="empty_bookings_body">A lefoglalt élményeid itt jelennek majd meg, a kóddal és minden fontos részlettel együtt.</string>
+    <string name="booking_success_subtitle">A helyetek biztosítva van. Már csak oda kell érni és élvezni.</string>
+    <string name="booking_code_hint">Ezt mutasd meg érkezéskor</string>
+    <string name="today">Ma</string>
+    <string name="from_price">%1$s / fő</string>
+    <string name="profile_greeting">Szia, %1$s!</string>
+    <string name="profile_subtitle">Innen kezelheted a fiókodat és az alkalmazás beállításait.</string>
+    <string name="profile_account">Fiók</string>
+    <string name="profile_experience">Élménybeállítások</string>
+    <string name="appearance">Megjelenés</string>
+    <string name="system_theme">A rendszer beállítása szerint</string>
+    <string name="map_list_switch">Megjelenítés váltása</string>
+    <string name="search_field_description">Programok és szolgáltatók keresése</string>
+    <string name="filter_active_count">%1$d aktív szűrő</string>
+    <string name="provider_programs">Aktuális programok</string>
+    <string name="reservation_summary">Foglalás összegzése</string>
+    <string name="price_per_person">Ár személyenként</string>
+    <string name="safe_booking_note">A foglalást csak egyszer küldjük el. Az elérhetőséget a szerver ellenőrzi.</string>
+    <string name="close_sheet">Lap bezárása</string>
+    <string name="image_description">%1$s programképe</string>
+    <string name="your_next_adventure">A KÖVETKEZŐ ÉLMÉNYED</string>
+    <string name="saved_for_later">FÉLRETETTED KÉSŐBBRE</string>
+</resources>

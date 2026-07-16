@@ -7,6 +7,10 @@ on:
       - main
       - "codex/**"
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -46,7 +50,22 @@ jobs:
       - name: Unit tests
         run: dotnet test tests/UgorjBe.UnitTests/UgorjBe.UnitTests.csproj -c Release --no-build
       - name: PostgreSQL integration tests
-        run: dotnet test tests/UgorjBe.IntegrationTests/UgorjBe.IntegrationTests.csproj -c Release --no-build
+        shell: bash
+        run: |
+          if ! dotnet test tests/UgorjBe.IntegrationTests/UgorjBe.IntegrationTests.csproj -c Release --no-build > /tmp/backend-integration.log 2>&1; then
+            echo "--- Backend integration failure (last 500 lines) ---"
+            tail -n 500 /tmp/backend-integration.log
+            exit 1
+          fi
+          tail -n 80 /tmp/backend-integration.log
+      - name: Upload backend integration failure log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-integration-log
+          path: /tmp/backend-integration.log
+          if-no-files-found: ignore
+          retention-days: 3
 
   android:
     runs-on: ubuntu-latest
@@ -65,8 +84,30 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           cache-read-only: false
-      - name: Test, lint, and build debug APK
-        run: bash ./gradlew testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest --no-daemon
+      - name: Test, lint, and build Android variants
+        shell: bash
+        run: |
+          if ! bash ./gradlew \
+            testDebugUnitTest \
+            lintDebug \
+            assembleDebug \
+            assembleDebugAndroidTest \
+            assembleRelease \
+            :baselineprofile:assemble \
+            --no-daemon > /tmp/android-gradle.log 2>&1; then
+            echo "--- Android Gradle failure (last 500 lines) ---"
+            tail -n 500 /tmp/android-gradle.log
+            exit 1
+          fi
+          tail -n 100 /tmp/android-gradle.log
+      - name: Upload Android Gradle failure log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-gradle-log
+          path: /tmp/android-gradle.log
+          if-no-files-found: error
+          retention-days: 3
 
   web-admin:
     runs-on: ubuntu-latest

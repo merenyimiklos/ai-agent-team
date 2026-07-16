@@ -149,7 +149,7 @@ public sealed class DatabaseSeeder(
         var candidate = localNow.AddMinutes(75);
         var roundedMinutes = candidate.Minute < 30 ? 30 : 0;
         var roundedHour = candidate.Minute < 30 ? candidate.Hour : candidate.Hour + 1;
-        var localBase = localNow.Date.AddHours(roundedHour).AddMinutes(roundedMinutes);
+        var localBase = candidate.Date.AddHours(roundedHour).AddMinutes(roundedMinutes);
         if (localBase.Date != localNow.Date || localBase.Hour > 20)
         {
             localBase = localNow.Date.AddDays(1).AddHours(9);
