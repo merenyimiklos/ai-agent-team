@@ -4,24 +4,38 @@
 
 Build UgorjBe: an ASP.NET Core/PostgreSQL backend, a secure React administration web application and a native Kotlin/Jetpack Compose customer application for discounted, time-limited empty places in local family activities.
 
-The booking MVP and Phase 2 map/admin expansion are complete. `CODEX_PHASE_3.md` is the active specification on this branch. Phase 3 replaces the Android presentation layer with a production-ready visual, motion, image, accessibility, performance and release foundation while preserving authoritative business behavior.
+The MVP, map/admin expansion and Phase 3 production mobile foundation are complete. `CODEX_PHASE_4.md` is the active specification on this branch. Phase 4 raises the Android customer experience to mature mobility/marketplace product quality without copying another product or changing authoritative business behavior.
 
-## Active Phase 3 workflow
+## Active Phase 4 workflow
 
 The engineering lead must:
 
-1. reproduce and fix Android/API integration defects before visual work;
-2. lock representative JSON contracts with regression tests;
-3. define the production mobile design and motion systems;
-4. validate dependency, navigation, image, Lottie, release and test decisions;
-5. implement the complete Android redesign using the real API;
-6. add release optimization, Macrobenchmark and Baseline Profile support;
-7. verify functionality, accessibility, themes, sizes and failure states;
-8. perform an independent engineering/design review;
+1. preserve the tested Phase 3 head as the implementation base;
+2. research only lawfully public, preferably official reference material;
+3. separate reusable design principles from distinctive elements that must not be copied;
+4. define an original UgorjBe editorial-mobility direction;
+5. polish every customer-facing Android route using the real API;
+6. retain map/list state, booking, cancellation, favorites and failure behavior;
+7. extend accessibility, visual, contract and performance verification;
+8. perform explicit originality, QA, performance and engineering reviews;
 9. fix all blocking and high-severity findings;
-10. report exact commands, results, evidence and limitations in the draft PR.
+10. report exact evidence and device-dependent limitations in a draft pull request.
 
-Do not stop at research, documentation, previews, scaffolding or a debug-only build.
+Do not stop at research, documentation, previews or partial screens.
+
+## Product direction
+
+- Immediately polished, confident and trustworthy.
+- Youthful without becoming childish.
+- Bold, image-led and fast to scan without visual clutter.
+- Map-native, tactile and smoothly animated.
+- Visually coherent with the administration web's forest, cream, coral and warm editorial language.
+- Clearly and originally UgorjBe.
+- No Flutter, WebView, second UI runtime, social feed, stories, reels, autoplay or dark patterns.
+
+Reference quality may inform hierarchy, task clarity, scanning speed and feedback. Exact reference colors, geometry, layouts, navigation, copy, icons, markers, assets or motion signatures must not be copied.
+
+The name `cleengo` remains excluded until an exact application is identified from an authoritative source.
 
 ## Customer journey
 
@@ -35,93 +49,75 @@ A customer can:
 - receive a booking code or QR payload;
 - view active and previous bookings;
 - cancel when permitted;
-- save favorite offers or providers.
+- save favorite offers or providers;
+- recover from network, contract, image, Maps, permission and stale-data failures.
 
-Phase 3 changes presentation and production quality, not these business rules.
-
-## Administrator journey
-
-The existing web application remains functional. An administrator can sign in, manage providers, create/edit/publish/unpublish/archive offers and enter Budapest-local times that the API converts to UTC.
-
-The web client must use authorized APIs and never access PostgreSQL directly. Phase 3 must not redesign the administration web except for a narrowly required compatibility correction.
+Phase 4 changes presentation quality, not these business rules.
 
 ## Technical baseline
 
-### Backend
+### Backend and web
 
-- .NET 8 ASP.NET Core Web API.
-- PostgreSQL and Entity Framework Core migrations.
-- JWT authentication and backend-enforced roles.
-- OpenAPI, Docker Compose, development seed and automated tests.
-- Database-backed overbooking protection.
-- Efficient bounded geographic queries.
-- Representative API/Android JSON contract tests.
+- .NET 8 ASP.NET Core, PostgreSQL, EF Core, JWT and backend-enforced roles remain authoritative.
+- Overbooking protection, expiry, pricing and cancellation rules must not be weakened.
+- The existing React administration web remains green and communicates only through authorized APIs.
+- Docker Compose and Playwright smoke tests remain required.
 
 ### Android
 
-- Kotlin and Jetpack Compose; no Flutter or WebView UI.
-- Original tokenized Material 3 light/dark identity.
-- Google Maps Compose and clustering.
+- Kotlin and Jetpack Compose only.
+- Original Material 3 light/dark token system.
+- Google Maps Compose with bounded queries, custom original price markers and clustering.
 - Single activity, Navigation Compose, ViewModel, Coroutines/Flow, Hilt and Retrofit/OkHttp.
-- Maintained cached image loading with deterministic category fallback.
-- Small purposeful original Lottie animations with native/static fallback.
-- Compose motion for hierarchy, continuity, state and success.
-- Clear loading, skeleton, empty, stale, contract-error, network-error, permission-denied, map-unavailable, image-error and retry states.
-- Compact, medium and expanded layouts.
+- Coil image loading with deterministic category fallback.
+- Original bounded Lottie animations with native/static fallback.
+- Four visible top-level destinations on compact screens and an adaptive rail on larger screens.
+- Map and List are two presentations of one Explore state.
+- Stable lazy-list keys and preserved scroll/state behavior.
 - TalkBack semantics, 48 dp targets, contrast, 200% font scale and reduced-motion behavior.
-- Macrobenchmark/Baseline Profile and release-like measurement.
-- Release R8/minification and safe resource shrinking.
-- Debug emulator backend access; no debug API URL or cleartext traffic in release.
-- Maps keys and signing material remain local and uncommitted.
-
-### Administration web
-
-- Existing TypeScript/React implementation remains green.
-- Role-aware API integration only.
-- Lint, typecheck, tests, production build and browser smoke remain required.
+- Macrobenchmark/Baseline Profile support for startup, list scrolling, Map/List switching and detail opening.
+- Release R8/minification, resource shrinking and HTTPS-only release configuration.
+- Maps keys, signing material and production secrets remain local and uncommitted.
 
 ## Design rules
 
-- Youthful but not childish; expressive but not noisy; premium but approachable.
-- Image-led and fast to scan while still trustworthy for parents and families.
-- Original UgorjBe identity; do not copy TikTok, Instagram, Munch, Airbnb, Google Maps or another product's distinctive UI, assets, copy or motion signature.
-- Keep all four compact top-level destinations visible.
-- Treat Map and List as two presentations of Explore with shared state.
-- Motion must never delay booking or hide server-authoritative updates.
-- Lottie is purposeful, licensed/original, bounded and optional to comprehension.
-- The app remains intentional when every image fails, Maps is unavailable, location is denied or the backend is offline.
-- No feeds, stories, reels, autoplay media, addictive mechanics or dark patterns.
-- Hungarian is the demo locale and all visible copy is resource-backed.
+- The map is an operational canvas, not a decorative background.
+- A selected event exposes time, price, remaining places and one clear action.
+- List cards show title, provider, time, price, discount and capacity in one scan.
+- Avoid chip walls and unnecessary metadata.
+- Motion explains continuity and tactile response but never delays booking.
+- No expensive continuous animation while the camera is moving.
+- The app remains intentional when all images fail or Maps is unavailable.
+- All visible Hungarian copy is resource-backed.
+- No proprietary screenshots, logos, fonts, illustrations, icons, markers, animation assets or source code may be committed.
 
 ## Quality gates
 
-Before Phase 3 can be declared complete:
+Before Phase 4 can be declared complete:
 
-- backend restore/build/format/unit/integration tests pass;
-- web lint/typecheck/tests/build and browser smoke pass;
-- Android contract/unit/UI/accessibility tests pass;
-- debug and release Android builds pass;
+- backend restore/build/format/unit/PostgreSQL integration tests pass;
+- web lint/typecheck/tests/build and Playwright smoke pass;
+- Android contract/unit/Compose UI tests compile and pass where supported;
+- debug, androidTest and release Android builds pass;
 - R8/minification and resource shrinking are verified;
-- Docker Compose starts backend, database and admin web;
-- seeded and admin-created published offers appear in Android Map and List;
-- discovery -> detail -> reserve -> success -> booking code -> cancellation works;
-- favorites and error recovery work;
-- light/dark, compact/expanded, large text and reduced-motion behavior are reviewed;
-- Lottie, image, Maps and network failures degrade safely;
-- Baseline Profile generation and benchmark commands are documented and measured on an available device/emulator;
-- design, motion, dependency, asset and test reports exist;
-- no secrets, API keys, signing files, proprietary fonts or unlicensed assets are committed;
-- no unresolved blocking or high-severity review finding remains.
+- benchmark and Baseline Profile modules compile;
+- connected tests and numeric benchmarks are run on an available device or explicitly documented as device-dependent;
+- an admin-created published offer appears in Android Map and List and can be booked;
+- booking, cancellation, favorites and recovery behavior remain intact;
+- light/dark, compact/expanded, 200% text, TalkBack and reduced-motion behavior are reviewed;
+- reference benchmark, art direction, design system, motion, dependency, asset, visual review and screenshot records exist;
+- originality review confirms that no reference product was cloned;
+- no unresolved blocking or high-severity functional, visual, accessibility, originality, security, performance or release finding remains.
 
 ## Git rules
 
 - Never push implementation directly to `main`.
-- Use focused commits on `chatgpt/phase3-production-mobile`.
-- Keep the pull request draft until quality gates are complete.
+- Use focused commits on `codex/ugorjbe-phase4-reference-polish`.
+- Keep pull request #4 draft until the quality gates are complete.
 - Do not merge or deploy without human approval.
-- Do not rewrite unrelated backend or web files.
-- Dependency and asset additions require purpose, source and license records.
+- Do not rewrite unrelated backend or administration-web implementation.
+- New dependencies and assets require purpose, source and license records.
 
 ## Definition of done
 
-Phase 3 is done only when a fresh developer can start the stack, supply a local Maps key, build debug and release variants, sign in, discover real offers on Map/List, complete booking/favorite/cancellation flows, observe the production visual/motion system and safe fallbacks, run documented tests/benchmarks and review a draft pull request containing evidence and no unresolved blocking defect.
+Phase 4 is done only when a fresh developer can build debug and release variants, use a local restricted Maps key, sign in, discover real offers on the polished Map/List experience, complete booking/favorite/cancellation flows, observe safe fallbacks, run documented tests and device benchmarks, review originality evidence and inspect a green draft pull request with no unresolved blocking defect.
