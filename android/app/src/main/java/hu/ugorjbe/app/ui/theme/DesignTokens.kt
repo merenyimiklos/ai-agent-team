@@ -37,7 +37,7 @@ object UgorjBeMotion {
 
     fun <T> tactileSpring() = spring<T>(
         dampingRatio = 0.82f,
-        stiffness = Spring.StiffnessMediumHigh,
+        stiffness = Spring.StiffnessMedium,
     )
 
     fun <T> settleSpring() = spring<T>(
