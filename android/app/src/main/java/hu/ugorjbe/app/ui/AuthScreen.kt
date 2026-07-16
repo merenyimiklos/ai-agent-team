@@ -2,12 +2,11 @@ package hu.ugorjbe.app.ui
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.core.animateColorAsState
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -55,6 +54,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -249,7 +249,8 @@ private fun AuthForm(state: AuthUiState, viewModel: AuthViewModel, modifier: Mod
             AnimatedContent(
                 targetState = state.mode,
                 transitionSpec = {
-                    fadeIn(tween(UgorjBeMotion.Standard)) togetherWith fadeOut(tween(UgorjBeMotion.Quick)) using
+                    fadeIn(androidx.compose.animation.core.tween(UgorjBeMotion.Standard)) togetherWith
+                        fadeOut(androidx.compose.animation.core.tween(UgorjBeMotion.Quick)) using
                         SizeTransform(clip = false)
                 },
                 label = "auth-mode",
@@ -263,7 +264,7 @@ private fun AuthForm(state: AuthUiState, viewModel: AuthViewModel, modifier: Mod
                             value = state.displayName,
                             onValueChange = viewModel::setDisplayName,
                             label = { Text(stringResource(R.string.display_name)) },
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth().testTag("auth_display_name"),
                             shape = RoundedCornerShape(UgorjBeRadius.medium),
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                             singleLine = true,
@@ -273,7 +274,7 @@ private fun AuthForm(state: AuthUiState, viewModel: AuthViewModel, modifier: Mod
                         value = state.email,
                         onValueChange = viewModel::setEmail,
                         label = { Text(stringResource(R.string.email)) },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().testTag("auth_email"),
                         shape = RoundedCornerShape(UgorjBeRadius.medium),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
                         singleLine = true,
@@ -282,7 +283,7 @@ private fun AuthForm(state: AuthUiState, viewModel: AuthViewModel, modifier: Mod
                         value = state.password,
                         onValueChange = viewModel::setPassword,
                         label = { Text(stringResource(R.string.password)) },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().testTag("auth_password"),
                         shape = RoundedCornerShape(UgorjBeRadius.medium),
                         singleLine = true,
                         visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
@@ -319,7 +320,7 @@ private fun AuthForm(state: AuthUiState, viewModel: AuthViewModel, modifier: Mod
                     }
                     Button(
                         onClick = viewModel::submit,
-                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        modifier = Modifier.fillMaxWidth().height(56.dp).testTag("auth_submit"),
                         enabled = !state.submitting,
                         shape = RoundedCornerShape(UgorjBeRadius.medium),
                     ) {
